@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+{% block title %}تقرير المبيعات — {{ APP_NAME }}{% endblock %}
+{% block topbar_title %}تقرير المبيعات{% endblock %}
+{% block topbar_crumb %}التقارير / المبيعات{% endblock %}
+
+{% block page_header %}
+<div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;">
+  <div>
+    <h1 style="font-family:'Calistoga',serif;font-size:22px;">تقرير المبيعات</h1>
+    <p style="font-size:12px;color:var(--muted-fg);margin-top:3px;">
+      {% if report_type=='daily' %}مبيعات يوم {{ sel_date.strftime('%Y-%m-%d') if sel_date else '' }}
+      {% elif report_type=='monthly' %}مبيعات شهر {{ month_str }}
+      {% else %}مبيعات حسب الكاشير{% endif %}
+    </p>
+  </div>
+  <div style="display:flex;gap:8px;">
+    {% if report_type=='daily' and sel_date %}
+    <a href="{{ url_for('reports.sales_export_excel', date_from=sel_date, date_to=sel_date) }}"
+       class="btn btn-ghost"><i class="ti ti-file-spreadsheet"></i> Excel</a>
+    {% endif %}
+    <button onclick="window.print()" class="btn btn-ghost"><i class="ti ti-printer"></i> طباعة</button>
+    <a href="{{ url_for('reports.index') }}" class="btn btn-ghost"><i class="ti ti-arrow-right"></i> رجوع</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<!-- Type Tabs + Filter -->
+<div class="card" style="padding:14px 18px;margin-bottom:16px;">
+  <div style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;">
+    <div class="tabs" style="margin-bottom:0;">
+      <a href="{{ url_for('reports.sales', type='daily') }}"
+         class="tab {% if report_type=='daily' %}active{% endif %}">
+        <i class="ti ti-calendar-day"></i> يومي
+      </a>
+      <a href="{{ url_for('reports.sales', type='monthly') }}"
+         class="tab {% if report_type=='monthly' %}active{% endif %}">
+        <i class="ti ti-calendar-month"></i> شهري
+      </a>
+      <a href="{{ url_for('reports.sales', type='cashier') }}"
+         class="tab {% if report_type=='cashier' %}active{% endif %}">
+        <i class="ti ti-user"></i> الكاشير
+      </a>
+    </div>
+
+    {% if report_type=='daily' %}
+    <form method="GET" style="display:flex;gap:8px;align-items:flex-end;">
+      <input type="hidden" name="type" value="daily"/>
+      <div>
+        <div class="fg-label">اليوم</div>
+        <input type="date" name="date" class="fg-input" style="width:160px;"
+               value="{{ sel_date.strftime('%Y-%m-%d') if sel_date else '' }}"/>
+      </div>
+      <button type="submit" class="btn btn-primary">عرض</button>
+    </form>
+    {% elif report_type=='monthly' %}
+    <form method="GET" style="display:flex;gap:8px;align-items:flex-end;">
+      <input type="hidden" name="type" value="monthly"/>
+      <div>
+        <div class="fg-label">الشهر</div>
+        <input type="month" name="month" class="fg-input" style="width:160px;" value="{{ month_str }}"/>
+      </div>
+      <button type="submit" class="btn btn-primary">عرض</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ══ DAILY ══ -->
+{% if report_type=='daily' %}
+
+<div style="display:grid;grid-template-columns:1.1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+  <div class="stat-hero" style="min-height:auto;padding:16px 20px;">
+    <div class="stat-hero-label">إجمالي مبيعات اليوم</div>
+    <div class="stat-hero-value" style="font-size:28px;">{{ "%.0f"|format(total_revenue) }} <span class="stat-hero-unit">{{ CURRENCY }}</span></div>
+    <div class="stat-hero-footer">{{ day_sales|length }} فاتورة</div>
+  </div>
+  <div class="stat-side">
+    <div class="stat-side-label">الخصومات</div>
+    <div class="stat-side-value" style="color:var(--red)">{{ "%.0f"|format(total_discount) }}</div>
+    <div class="stat-side-footer">{{ CURRENCY }}</div>
+  </div>
+  <div class="stat-side">
+    <div class="stat-side-label">صافي الربح</div>
+    <div class="stat-side-value" style="{% if total_profit>=0 %}color:var(--green){% else %}color:var(--red){% endif %}">{{ "%.0f"|format(total_profit) }}</div>
+    <div class="stat-side-footer">{{ CURRENCY }}</div>
+  </div>
+  <div class="stat-side">
+    <div class="stat-side-label">نقدي / آجل / تحويل</div>
+    <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+      <span class="b b-green">{{ "%.0f"|format(cash_sales) }}</span>
+      <span class="b b-orange">{{ "%.0f"|format(credit_sales) }}</span>
+      <span class="b b-blue">{{ "%.0f"|format(transfer_sales) }}</span>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-h">
+    <span class="card-title"><i class="ti ti-receipt"></i> فواتير يوم {{ sel_date.strftime('%Y-%m-%d') if sel_date else '' }}</span>
+  </div>
+  {% if day_sales %}
+  <div class="tw">
+    <table>
+      <thead>
+        <tr><th>#</th><th>رقم الفاتورة</th><th>العميل</th><th>الكاشير</th><th>المجموع</th><th>الخصم</th><th>الصافي</th><th>الربح</th><th>الدفع</th><th>الوقت</th></tr>
+      </thead>
+      <tbody>
+        {% for s in day_sales %}
+        <tr>
+          <td class="td-m" style="font-size:11px;">{{ loop.index }}</td>
+          <td><a href="{{ url_for('sales.detail', sale_id=s.id) }}" class="b b-blue" style="text-decoration:none;">{{ s.invoice_number[-8:] }}</a></td>
+          <td class="td-s">{{ s.customer.name if s.customer else '—' }}</td>
+          <td class="td-m">{{ s.cashier.full_name }}</td>
+          <td class="td-n td-m">{{ "%.2f"|format(s.subtotal) }} {{ CURRENCY }}</td>
+          <td class="td-n" style="color:var(--red);">{% if s.discount_amount %}— {{ "%.2f"|format(s.discount_amount) }}{% else %}<span class="td-m">—</span>{% endif %}</td>
+          <td class="td-n">{{ "%.2f"|format(s.total) }} {{ CURRENCY }}</td>
+          <td class="td-n" style="color:var(--green);">{{ "%.2f"|format(s.profit) }} {{ CURRENCY }}</td>
+          <td>
+            {% if s.payment_method=='cash' %}<span class="b b-green">نقدي</span>
+            {% elif s.payment_method=='credit' %}<span class="b b-orange">آجل</span>
+            {% else %}<span class="b b-blue">تحويل</span>{% endif %}
+          </td>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted-fg);">{{ s.created_at.strftime('%H:%M') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr style="background:var(--muted);">
+          <td colspan="4" style="padding:9px 16px;font-weight:700;font-size:12px;text-align:left;">الإجمالي</td>
+          <td style="padding:9px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--muted-fg);">{{ "%.2f"|format(day_sales|sum(attribute='subtotal')) }} {{ CURRENCY }}</td>
+          <td style="padding:9px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--red);">— {{ "%.2f"|format(total_discount) }}</td>
+          <td style="padding:9px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;">{{ "%.2f"|format(total_revenue) }} {{ CURRENCY }}</td>
+          <td style="padding:9px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--green);">{{ "%.2f"|format(total_profit) }} {{ CURRENCY }}</td>
+          <td colspan="2"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty"><i class="ti ti-receipt-off"></i><p>لا توجد مبيعات في هذا اليوم</p></div>
+  {% endif %}
+</div>
+
+{% endif %}
+
+<!-- ══ MONTHLY ══ -->
+{% if report_type=='monthly' %}
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+  <div class="stat-hero" style="min-height:auto;padding:16px 20px;">
+    <div class="stat-hero-label">إجمالي الشهر</div>
+    <div class="stat-hero-value" style="font-size:32px;">{{ "%.0f"|format(month_total) }} <span class="stat-hero-unit">{{ CURRENCY }}</span></div>
+  </div>
+  <div class="stat-side">
+    <div class="stat-side-label">عدد الفواتير</div>
+    <div class="stat-side-value">{{ month_count }}</div>
+    <div class="stat-side-footer">فاتورة مكتملة</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-h">
+    <span class="card-title"><i class="ti ti-calendar-month"></i> مبيعات شهر {{ sel_month.strftime('%Y-%m') if sel_month else '' }}</span>
+  </div>
+  {% if monthly_data %}
+  <div class="tw">
+    <table>
+      <thead><tr><th>اليوم</th><th>عدد الفواتير</th><th>الإجمالي</th><th>الخصومات</th><th>نسبة الشهر</th></tr></thead>
+      <tbody>
+        {% for row in monthly_data %}
+        <tr>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;">{{ row.day }}</td>
+          <td><span class="b b-blue">{{ row.count }}</span></td>
+          <td class="td-n">{{ "%.2f"|format(row.revenue or 0) }} {{ CURRENCY }}</td>
+          <td class="td-n" style="color:var(--red);">{{ "%.2f"|format(row.discount or 0) }}</td>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div style="flex:1;height:6px;background:var(--muted);border-radius:3px;overflow:hidden;">
+                <div style="height:100%;background:var(--grad);border-radius:3px;width:{{ ((row.revenue or 0)/month_total*100)|round(1) if month_total else 0 }}%;"></div>
+              </div>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted-fg);min-width:36px;">{{ ((row.revenue or 0)/month_total*100)|round(1) if month_total else 0 }}%</span>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr style="background:var(--muted);">
+          <td style="padding:9px 16px;font-weight:700;font-size:12px;">الإجمالي</td>
+          <td style="padding:9px 16px;font-weight:700;">{{ month_count }}</td>
+          <td style="padding:9px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;">{{ "%.2f"|format(month_total) }} {{ CURRENCY }}</td>
+          <td colspan="2"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty"><i class="ti ti-receipt-off"></i><p>لا توجد مبيعات في هذا الشهر</p></div>
+  {% endif %}
+</div>
+
+{% endif %}
+
+<!-- ══ CASHIER ══ -->
+{% if report_type=='cashier' %}
+
+<div class="card">
+  <div class="card-h">
+    <span class="card-title"><i class="ti ti-users"></i> المبيعات حسب الكاشير</span>
+  </div>
+  {% if cashier_rows %}
+  {% set grand = cashier_rows|sum(attribute='revenue') %}
+  <div class="tw">
+    <table>
+      <thead><tr><th>#</th><th>الكاشير</th><th>عدد الفواتير</th><th>إجمالي المبيعات</th><th>النسبة</th></tr></thead>
+      <tbody>
+        {% for row in cashier_rows|sort(attribute='revenue',reverse=True) %}
+        <tr>
+          <td class="td-m" style="font-size:11px;">{{ loop.index }}</td>
+          <td class="td-s">{{ row.name }}</td>
+          <td><span class="b b-blue">{{ row.count }}</span></td>
+          <td class="td-n">{{ "%.2f"|format(row.revenue) }} {{ CURRENCY }}</td>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div style="flex:1;height:6px;background:var(--muted);border-radius:3px;overflow:hidden;">
+                <div style="height:100%;background:var(--grad);border-radius:3px;width:{{ (row.revenue/grand*100)|round(1) if grand else 0 }}%;"></div>
+              </div>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted-fg);min-width:36px;">{{ (row.revenue/grand*100)|round(1) if grand else 0 }}%</span>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr style="background:var(--muted);">
+          <td colspan="2" style="padding:9px 16px;font-weight:700;font-size:12px;text-align:left;">الإجمالي</td>
+          <td style="padding:9px 16px;font-weight:700;">{{ cashier_rows|sum(attribute='count') }}</td>
+          <td style="padding:9px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;">{{ "%.2f"|format(grand) }} {{ CURRENCY }}</td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty"><i class="ti ti-users-off"></i><p>لا توجد بيانات</p></div>
+  {% endif %}
+</div>
+
+{% endif %}
+
+{% endblock %}

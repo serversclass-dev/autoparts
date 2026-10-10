@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}المشتريات — {{ APP_NAME }}{% endblock %}
+{% block topbar_title %}المشتريات{% endblock %}
+{% block topbar_crumb %}المعاملات / المشتريات{% endblock %}
+
+{% block page_header %}
+<div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;">
+  <div>
+    <h1 style="font-family:'Calistoga',serif;font-size:22px;">المشتريات</h1>
+    <p style="font-size:12px;color:var(--muted-fg);margin-top:3px;">{{ purchases.total }} فاتورة شراء</p>
+  </div>
+  {% if current_user.is_admin %}
+  <a href="{{ url_for('purchases.create') }}" class="btn btn-primary">
+    <i class="ti ti-plus"></i> فاتورة شراء
+  </a>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+
+<!-- Summary -->
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+  <div class="stat-hero" style="min-height:auto;padding:16px 20px;">
+    <div class="stat-hero-label">إجمالي تكلفة المشتريات</div>
+    <div class="stat-hero-value" style="font-size:28px;">{{ "%.0f"|format(total_cost) }} <span class="stat-hero-unit">{{ CURRENCY }}</span></div>
+  </div>
+  <div class="stat-side">
+    <div class="stat-side-label">إجمالي الفواتير</div>
+    <div class="stat-side-value">{{ purchases.total }}</div>
+    <div class="stat-side-footer">فاتورة مسجّلة</div>
+  </div>
+  <div class="stat-side">
+    <div class="stat-side-label">متوسط الفاتورة</div>
+    <div class="stat-side-value">
+      {{ "%.0f"|format(total_cost / purchases.total if purchases.total else 0) }}
+      <span style="font-size:12px;font-weight:400;color:var(--muted-fg)">{{ CURRENCY }}</span>
+    </div>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="card" style="margin-bottom:14px;">
+  <div style="padding:14px 18px;">
+    <form method="GET">
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+        <div style="flex:1;min-width:180px;">
+          <div class="fg-label">بحث</div>
+          <div style="position:relative;">
+            <i class="ti ti-search" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted-fg);font-size:15px;"></i>
+            <input name="search" class="fg-input" style="padding-right:34px;" placeholder="رقم الفاتورة أو اسم المورد..." value="{{ search }}"/>
+          </div>
+        </div>
+        <div style="min-width:130px;">
+          <div class="fg-label">من تاريخ</div>
+          <input type="date" name="date_from" class="fg-input" value="{{ date_from }}"/>
+        </div>
+        <div style="min-width:130px;">
+          <div class="fg-label">إلى تاريخ</div>
+          <input type="date" name="date_to" class="fg-input" value="{{ date_to }}"/>
+        </div>
+        <div style="min-width:120px;">
+          <div class="fg-label">الحالة</div>
+          <select name="status" class="fg-input">
+            <option value="">— الكل —</option>
+            <option value="received" {% if status_filter=='received' %}selected{% endif %}>مستلمة</option>
+            <option value="cancelled" {% if status_filter=='cancelled' %}selected{% endif %}>ملغاة</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button type="submit" class="btn btn-primary"><i class="ti ti-filter"></i> فلترة</button>
+          <a href="{{ url_for('purchases.index') }}" class="btn btn-ghost"><i class="ti ti-x"></i></a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="tw">
+    {% if purchases.items %}
+    <table>
+      <thead>
+        <tr>
+          <th>رقم الفاتورة</th>
+          <th>المورد</th>
+          <th>الإجمالي</th>
+          <th>المدفوع</th>
+          <th>طريقة الدفع</th>
+          <th>الحالة</th>
+          <th>التاريخ</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in purchases.items %}
+        <tr style="{% if p.status=='cancelled' %}opacity:.5;{% endif %}">
+          <td>
+            <a href="{{ url_for('purchases.detail', purchase_id=p.id) }}"
+               class="b b-orange" style="text-decoration:none;">{{ p.invoice_number }}</a>
+          </td>
+          <td>
+            {% if p.supplier %}
+            <a href="{{ url_for('suppliers.detail', supplier_id=p.supplier.id) }}"
+               style="font-weight:700;color:var(--fg);text-decoration:none;">{{ p.supplier.name }}</a>
+            {% else %}
+            <span class="td-m">— بدون مورد —</span>
+            {% endif %}
+          </td>
+          <td class="td-n">{{ "%.2f"|format(p.total) }} {{ CURRENCY }}</td>
+          <td class="td-n td-m">
+            {% if p.payment_method != 'credit' %}{{ "%.2f"|format(p.paid) }} {{ CURRENCY }}{% else %}<span>—</span>{% endif %}
+          </td>
+          <td>
+            {% if p.payment_method=='cash' %}<span class="b b-green">نقدي</span>
+            {% elif p.payment_method=='credit' %}<span class="b b-orange">آجل</span>
+            {% else %}<span class="b b-blue">تحويل</span>{% endif %}
+          </td>
+          <td>
+            {% if p.status=='received' %}<span class="b b-green">مستلمة</span>
+            {% elif p.status=='cancelled' %}<span class="b b-muted">ملغاة</span>
+            {% else %}<span class="b b-blue">معلقة</span>{% endif %}
+          </td>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted-fg);">
+            {{ p.purchase_date.strftime('%Y-%m-%d') }}
+          </td>
+          <td>
+            <a href="{{ url_for('purchases.detail', purchase_id=p.id) }}" class="btn btn-ghost btn-sm">
+              <i class="ti ti-eye"></i>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if purchases.pages > 1 %}
+    <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-size:12px;color:var(--muted-fg);">{{ purchases.total }} فاتورة</span>
+      <div class="pagination">
+        {% if purchases.has_prev %}
+        <a class="page-btn" href="?page={{ purchases.prev_num }}&search={{ search }}&date_from={{ date_from }}&date_to={{ date_to }}&status={{ status_filter }}">
+          <i class="ti ti-chevron-right"></i>
+        </a>
+        {% endif %}
+        {% for p in purchases.iter_pages(left_edge=1,right_edge=1,left_current=2,right_current=2) %}
+          {% if p %}
+          <a class="page-btn {% if p==purchases.page %}active{% endif %}"
+             href="?page={{ p }}&search={{ search }}&date_from={{ date_from }}&date_to={{ date_to }}&status={{ status_filter }}">{{ p }}</a>
+          {% else %}
+          <span class="page-btn disabled">…</span>
+          {% endif %}
+        {% endfor %}
+        {% if purchases.has_next %}
+        <a class="page-btn" href="?page={{ purchases.next_num }}&search={{ search }}&date_from={{ date_from }}&date_to={{ date_to }}&status={{ status_filter }}">
+          <i class="ti ti-chevron-left"></i>
+        </a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty">
+      <i class="ti ti-shopping-cart-off"></i>
+      <p>لا توجد فواتير مطابقة</p>
+      {% if current_user.is_admin %}
+      <a href="{{ url_for('purchases.create') }}" class="btn btn-primary" style="margin-top:12px;">
+        <i class="ti ti-plus"></i> إنشاء فاتورة شراء
+      </a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

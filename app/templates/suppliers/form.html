@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}{% if supplier %}تعديل مورد{% else %}مورد جديد{% endif %} — {{ APP_NAME }}{% endblock %}
+{% block topbar_title %}{% if supplier %}تعديل: {{ supplier.name }}{% else %}مورد جديد{% endif %}{% endblock %}
+{% block topbar_crumb %}الموردون{% endblock %}
+
+{% block page_header %}
+<div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;">
+  <div>
+    <h1 style="font-family:'Calistoga',serif;font-size:22px;">
+      {% if supplier %}تعديل بيانات المورد{% else %}إضافة مورد جديد{% endif %}
+    </h1>
+    <p style="font-size:12px;color:var(--muted-fg);margin-top:3px;">
+      {% if supplier %}{{ supplier.name }}{% else %}أدخل بيانات المورد{% endif %}
+    </p>
+  </div>
+  <a href="{{ url_for('suppliers.index') }}" class="btn btn-ghost">
+    <i class="ti ti-arrow-right"></i> رجوع
+  </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="display:grid;grid-template-columns:1fr 300px;gap:16px;max-width:860px;">
+
+  <div class="card" style="padding:22px;">
+    <form method="POST"
+          action="{% if supplier %}{{ url_for('suppliers.edit', supplier_id=supplier.id) }}{% else %}{{ url_for('suppliers.create') }}{% endif %}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+      <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border);">
+        البيانات الأساسية
+      </div>
+
+      <div class="fg-wrap">
+        <label class="fg-label">اسم المورد <span style="color:var(--red)">*</span></label>
+        <input name="name" class="fg-input" placeholder="اسم الشركة أو المورد"
+               value="{{ supplier.name if supplier else '' }}" required autofocus/>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="fg-wrap">
+          <label class="fg-label">رقم الهاتف</label>
+          <div style="position:relative;">
+            <i class="ti ti-phone" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted-fg);font-size:15px;"></i>
+            <input name="phone" class="fg-input" style="padding-right:34px;"
+                   placeholder="09xxxxxxxx"
+                   value="{{ supplier.phone if supplier and supplier.phone else '' }}"/>
+          </div>
+        </div>
+        <div class="fg-wrap">
+          <label class="fg-label">البريد الإلكتروني</label>
+          <div style="position:relative;">
+            <i class="ti ti-mail" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted-fg);font-size:15px;"></i>
+            <input type="email" name="email" class="fg-input" style="padding-right:34px;"
+                   placeholder="example@domain.ly"
+                   value="{{ supplier.email if supplier and supplier.email else '' }}"/>
+          </div>
+        </div>
+      </div>
+
+      <div class="fg-wrap">
+        <label class="fg-label">العنوان</label>
+        <input name="address" class="fg-input" placeholder="المدينة، الحي، الشارع — ليبيا"
+               value="{{ supplier.address if supplier and supplier.address else '' }}"/>
+      </div>
+
+      <div class="fg-wrap">
+        <label class="fg-label">ملاحظات</label>
+        <textarea name="notes" class="fg-input" rows="3"
+                  placeholder="أي ملاحظات إضافية...">{{ supplier.notes if supplier and supplier.notes else '' }}</textarea>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:6px;">
+        <button type="submit" class="btn btn-primary">
+          <i class="ti ti-device-floppy"></i>
+          {% if supplier %}حفظ التعديلات{% else %}إضافة المورد{% endif %}
+        </button>
+        <a href="{{ url_for('suppliers.index') }}" class="btn btn-ghost">إلغاء</a>
+      </div>
+
+    </form>
+  </div>
+
+  <!-- Side -->
+  <div>
+    {% if supplier %}
+    <div class="card" style="padding:18px;margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:700;color:var(--muted-fg);margin-bottom:12px;">ملخص الحساب</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;justify-content:space-between;font-size:12px;">
+          <span style="color:var(--muted-fg);">فواتير الشراء</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-weight:600;">{{ supplier.purchases.count() }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;">
+          <span style="color:var(--muted-fg);">إجمالي الآجل</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--orange);">{{ "%.2f"|format(supplier.total_invoiced) }} {{ CURRENCY }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;">
+          <span style="color:var(--muted-fg);">إجمالي المدفوع</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--green);">{{ "%.2f"|format(supplier.total_paid) }} {{ CURRENCY }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding-top:8px;margin-top:4px;">
+          <span style="font-weight:700;font-size:13px;">المستحق له</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-weight:700;
+            {% if supplier.balance > 0 %}color:var(--orange){% else %}color:var(--green){% endif %}">
+            {{ "%.2f"|format(supplier.balance) }} {{ CURRENCY }}
+          </span>
+        </div>
+      </div>
+      <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);">
+        <a href="{{ url_for('suppliers.detail', supplier_id=supplier.id) }}"
+           class="btn btn-ghost" style="width:100%;justify-content:center;">
+          <i class="ti ti-book"></i> كشف الحساب
+        </a>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card" style="padding:18px;">
+      <div style="font-size:12px;font-weight:700;color:var(--muted-fg);margin-bottom:10px;">ملاحظة</div>
+      <p style="font-size:12px;color:var(--muted-fg);line-height:1.7;">
+        يمكن تسجيل دفعات للمورد من صفحة تفاصيله.
+        الرصيد يُحسب تلقائياً من فواتير الشراء الآجلة والدفعات المسجّلة.
+      </p>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

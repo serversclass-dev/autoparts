@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}المنتجات — {{ APP_NAME }}{% endblock %}
+{% block topbar_title %}المنتجات{% endblock %}
+{% block topbar_crumb %}المخزون / المنتجات{% endblock %}
+
+{% block page_header %}
+<div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;">
+  <div>
+    <h1 style="font-family:'Calistoga',serif;font-size:22px;">المنتجات والمخزون</h1>
+    <p style="font-size:12px;color:var(--muted-fg);margin-top:3px;">{{ products.total }} منتج نشط</p>
+  </div>
+  {% if current_user.is_admin %}
+  <a href="{{ url_for('products.create') }}" class="btn btn-primary">
+    <i class="ti ti-plus"></i> منتج جديد
+  </a>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+
+<!-- Filters -->
+<div class="card" style="margin-bottom:14px;">
+  <div style="padding:14px 18px;">
+    <form method="GET">
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+        <div style="flex:1;min-width:200px;">
+          <div style="font-size:11px;font-weight:700;color:var(--muted-fg);margin-bottom:5px;">بحث</div>
+          <div style="position:relative;">
+            <i class="ti ti-search" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted-fg);font-size:15px;"></i>
+            <input name="search" class="fg-input" style="padding-right:34px;" placeholder="الاسم أو الباركود..." value="{{ search }}"/>
+          </div>
+        </div>
+        <div style="min-width:160px;">
+          <div style="font-size:11px;font-weight:700;color:var(--muted-fg);margin-bottom:5px;">التصنيف</div>
+          <select name="category_id" class="fg-input">
+            <option value="">— كل التصنيفات —</option>
+            {% for cat in categories %}
+            <option value="{{ cat.id }}" {% if category_id == cat.id|string %}selected{% endif %}>{{ cat.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div style="min-width:140px;">
+          <div style="font-size:11px;font-weight:700;color:var(--muted-fg);margin-bottom:5px;">المخزون</div>
+          <select name="stock" class="fg-input">
+            <option value="">— الكل —</option>
+            <option value="low" {% if stock_filter=='low' %}selected{% endif %}>قارب النفاد</option>
+            <option value="out" {% if stock_filter=='out' %}selected{% endif %}>نفد</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button type="submit" class="btn btn-primary"><i class="ti ti-filter"></i> فلترة</button>
+          <a href="{{ url_for('products.index') }}" class="btn btn-ghost"><i class="ti ti-x"></i></a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if stock_filter == 'low' or low_stock_count %}
+<div class="strip"><i class="ti ti-alert-triangle"></i> بعض المنتجات وصلت لحد التنبيه — راجع كمياتها.</div>
+{% endif %}
+
+<div class="card">
+  <div class="tw">
+    {% if products.items %}
+    <table>
+      <thead>
+        <tr>
+          <th>#</th><th>المنتج</th><th>التصنيف</th><th>الباركود</th>
+          <th>سعر الشراء</th><th>سعر البيع</th><th>هامش الربح</th><th>الكمية</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in products.items %}
+        <tr>
+          <td class="td-m" style="font-size:11px;">{{ loop.index + (products.page-1)*products.per_page }}</td>
+          <td>
+            <div class="td-s">{{ p.name }}</div>
+            {% if p.description %}<div style="font-size:11px;color:var(--muted-fg);max-width:200px;overflow:hidden;text-overflow:ellipsis;">{{ p.description }}</div>{% endif %}
+          </td>
+          <td>{% if p.category %}<span class="b b-blue">{{ p.category.name }}</span>{% else %}<span class="td-m">—</span>{% endif %}</td>
+          <td class="td-n" style="font-size:11px;">{{ p.barcode or '—' }}</td>
+          {% if current_user.is_admin %}
+          <td class="td-n">{{ "%.2f"|format(p.purchase_price) }}</td>
+          <td class="td-n">{{ "%.2f"|format(p.sale_price) }}</td>
+          <td class="td-n" style="color:{% if p.profit_margin >= 0 %}var(--green){% else %}var(--red){% endif %}">
+            {{ "%.1f"|format(p.profit_percent) }}%
+          </td>
+          {% else %}
+          <td class="td-m">—</td>
+          <td class="td-n">{{ "%.2f"|format(p.sale_price) }}</td>
+          <td class="td-m">—</td>
+          {% endif %}
+          <td>
+            {% if p.quantity <= 0 %}<span class="b b-red">نفد</span>
+            {% elif p.is_low_stock %}<span class="b b-orange">{{ p.quantity }} {{ p.unit }}</span>
+            {% else %}<span class="b b-green">{{ p.quantity }} {{ p.unit }}</span>{% endif %}
+          </td>
+          <td>
+            {% if current_user.is_admin %}
+            <div style="display:flex;gap:6px;">
+              <a href="{{ url_for('products.edit', product_id=p.id) }}" class="btn btn-ghost btn-sm"><i class="ti ti-edit"></i></a>
+              <button class="btn btn-danger btn-sm" onclick="confirmDel('{{ url_for('products.delete', product_id=p.id) }}','{{ p.name }}')"><i class="ti ti-trash"></i></button>
+            </div>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <!-- Pagination -->
+    {% if products.pages > 1 %}
+    <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-size:12px;color:var(--muted-fg);">{{ products.total }} منتج</span>
+      <div class="pagination">
+        {% if products.has_prev %}<a class="page-btn" href="?page={{ products.prev_num }}&search={{ search }}&category_id={{ category_id }}&stock={{ stock_filter }}"><i class="ti ti-chevron-right"></i></a>{% endif %}
+        {% for p in products.iter_pages(left_edge=1,right_edge=1,left_current=2,right_current=2) %}
+          {% if p %}<a class="page-btn {% if p==products.page %}active{% endif %}" href="?page={{ p }}&search={{ search }}&category_id={{ category_id }}&stock={{ stock_filter }}">{{ p }}</a>
+          {% else %}<span class="page-btn disabled">…</span>{% endif %}
+        {% endfor %}
+        {% if products.has_next %}<a class="page-btn" href="?page={{ products.next_num }}&search={{ search }}&category_id={{ category_id }}&stock={{ stock_filter }}"><i class="ti ti-chevron-left"></i></a>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="empty">
+      <i class="ti ti-package-off"></i>
+      <p>لا توجد منتجات مطابقة</p>
+      {% if current_user.is_admin %}<a href="{{ url_for('products.create') }}" class="btn btn-primary" style="margin-top:12px;"><i class="ti ti-plus"></i> أضف منتجاً</a>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Delete Modal -->
+<div class="modal-overlay" id="delModal">
+  <div class="modal-box">
+    <div class="modal-title">تأكيد الحذف</div>
+    <div class="modal-desc" id="delMsg"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('delModal')">إلغاء</button>
+      <form id="delForm" method="POST"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <button type="submit" class="btn btn-danger"><i class="ti ti-trash"></i> نعم، احذف</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function confirmDel(url,name){
+  document.getElementById('delForm').action=url;
+  document.getElementById('delMsg').textContent='هل أنت متأكد من حذف المنتج "'+name+'"؟';
+  openModal('delModal');
+}
+</script>
+{% endblock %}

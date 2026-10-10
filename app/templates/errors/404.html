@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}404 — الصفحة غير موجودة{% endblock %}
+{% block topbar_title %}خطأ 404{% endblock %}
+{% block topbar_crumb %}غير موجود{% endblock %}
+
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:center;min-height:60vh;">
+  <div style="text-align:center;max-width:420px;">
+    <div style="font-family:'Calistoga',serif;font-size:96px;line-height:1;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:8px;">404</div>
+    <h2 style="font-family:'Calistoga',serif;font-size:22px;color:var(--fg);margin-bottom:10px;">الصفحة غير موجودة</h2>
+    <p style="font-size:14px;color:var(--muted-fg);margin-bottom:24px;line-height:1.7;">
+      الصفحة التي تبحث عنها غير موجودة أو تم نقلها.
+      تحقق من الرابط أو عد للرئيسية.
+    </p>
+    <div style="display:flex;gap:10px;justify-content:center;">
+      <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary">
+        <i class="ti ti-home"></i> العودة للرئيسية
+      </a>
+      <button onclick="history.back()" class="btn btn-ghost">
+        <i class="ti ti-arrow-right"></i> رجوع
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}

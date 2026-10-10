@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+
+{% block title %}لوحة التحكم — {{ APP_NAME }}{% endblock %}
+{% block topbar_title %}لوحة التحكم{% endblock %}
+{% block topbar_crumb %}الرئيسية{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block page_header %}
+<div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;">
+  <div>
+    <h1 style="font-family:'Calistoga',serif;font-size:22px;color:var(--fg);">لوحة التحكم</h1>
+    <p style="font-size:12px;color:var(--muted-fg);margin-top:3px;" id="dash-date">أداء اليوم والشهر الحالي</p>
+  </div>
+  <a href="{{ url_for('sales.pos') }}" class="btn btn-primary no-print">
+    <i class="ti ti-plus"></i> فاتورة جديدة
+  </a>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── HERO STATS ── -->
+<div style="display:grid;grid-template-columns:1.1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+
+  <!-- Main hero -->
+  <div class="stat-hero">
+    <div class="stat-hero-label">مبيعات اليوم</div>
+    <div class="stat-hero-value">
+      {{ "%.0f"|format(today_revenue) }}
+      <span class="stat-hero-unit">{{ CURRENCY }}</span>
+    </div>
+    <div class="stat-hero-footer">
+      <span class="stat-up"><i class="ti ti-trending-up"></i></span>
+      {{ today_count }} فاتورة مكتملة اليوم
+    </div>
+  </div>
+
+  <!-- Profit -->
+  <div class="stat-side">
+    <div class="stat-side-label">ربح اليوم</div>
+    <div class="stat-side-value" style="{% if today_profit < 0 %}color:var(--red){% endif %}">
+      {{ "%.0f"|format(today_profit) }}
+      <span style="font-size:12px;font-weight:400;color:var(--muted-fg)">{{ CURRENCY }}</span>
+    </div>
+    <div class="stat-side-footer">صافي الربح من المبيعات</div>
+  </div>
+
+  <!-- Month -->
+  <div class="stat-side">
+    <div class="stat-side-label">مبيعات الشهر</div>
+    <div class="stat-side-value">
+      {{ "%.0f"|format(month_revenue) }}
+      <span style="font-size:12px;font-weight:400;color:var(--muted-fg)">{{ CURRENCY }}</span>
+    </div>
+    <div class="stat-side-footer">ربح: {{ "%.0f"|format(month_profit) }} {{ CURRENCY }}</div>
+  </div>
+
+  <!-- Alerts -->
+  <div class="stat-side {% if low_stock %}stat-side-alert{% endif %}">
+    <div class="stat-side-label">تنبيهات المخزون</div>
+    <div class="stat-side-value">
+      {{ low_stock|length }}
+      <span style="font-size:12px;font-weight:400;color:var(--muted-fg)">صنف</span>
+    </div>
+    <div class="stat-side-footer">
+      {% if low_stock %}وصلت لحد التنبيه{% else %}المخزون بخير{% endif %}
+    </div>
+  </div>
+
+</div>
+
+<!-- ── SECOND ROW ── -->
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+  <div class="stat-side">
+    <div class="stat-side-label">مصروفات الشهر</div>
+    <div class="stat-side-value" style="color:var(--red)">
+      {{ "%.0f"|format(month_expenses) }}
+      <span style="font-size:12px;font-weight:400;color:var(--muted-fg)">{{ CURRENCY }}</span>
+    </div>
+    <div class="stat-side-footer">إجمالي النفقات التشغيلية</div>
+  </div>
+  <div class="stat-side">
+    <div class="stat-side-label">مديونيات العملاء</div>
+    <div class="stat-side-value" style="{% if customer_debts > 0 %}color:var(--red){% endif %}">
+      {{ "%.0f"|format(customer_debts) }}
+      <span style="font-size:12px;font-weight:400;color:var(--muted-fg)">{{ CURRENCY }}</span>
+    </div>
+    <div class="stat-side-footer">إجمالي الآجل المستحق</div>
+  </div>
+  <div class="stat-side">
+    <div class="stat-side-label">قيمة المخزون</div>
+    <div class="stat-side-value">
+      {{ "%.0f"|format(stock_value) }}
+      <span style="font-size:12px;font-weight:400;color:var(--muted-fg)">{{ CURRENCY }}</span>
+    </div>
+    <div class="stat-side-footer">{{ total_products }} منتج نشط بسعر الشراء</div>
+  </div>
+</div>
+
+<!-- ── CHART + STOCK ── -->
+<div style="display:grid;grid-template-columns:1fr 300px;gap:14px;margin-bottom:16px;">
+
+  <!-- Chart -->
+  <div class="card">
+    <div class="card-h">
+      <span class="card-title"><i class="ti ti-chart-bar"></i> مبيعات آخر 7 أيام</span>
+      <a class="card-link" href="{{ url_for('reports.sales') }}">التقرير الكامل</a>
+    </div>
+    <div style="padding:16px 18px;height:160px;">
+      <canvas id="salesChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Low Stock -->
+  <div class="card">
+    <div class="card-h">
+      <span class="card-title"><i class="ti ti-alert-triangle"></i> نواقص المخزون</span>
+      <a class="card-link" href="{{ url_for('products.index', stock='low') }}">عرض الكل</a>
+    </div>
+    {% if low_stock %}
+    <div>
+      {% for p in low_stock[:5] %}
+      <div class="srow">
+        <div class="sind {% if p.quantity <= 0 %}sind-r{% else %}sind-o{% endif %}"></div>
+        <div class="sinfo">
+          <div class="sname">{{ p.name[:22] }}{% if p.name|length > 22 %}…{% endif %}</div>
+          <div class="scat">{{ p.category.name if p.category else '—' }}</div>
+        </div>
+        <span class="b {% if p.quantity <= 0 %}b-red{% else %}b-orange{% endif %}">
+          {{ p.quantity }} {{ p.unit }}
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty" style="padding:28px">
+      <i class="ti ti-circle-check" style="color:var(--green)"></i>
+      <p style="color:var(--green)">المخزون بخير</p>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- ── TOP PRODUCTS + RECENT SALES ── -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+
+  <!-- Top Products -->
+  <div class="card">
+    <div class="card-h">
+      <span class="card-title"><i class="ti ti-award"></i> الأكثر مبيعاً هذا الشهر</span>
+    </div>
+    <div class="tw">
+      <table>
+        <thead>
+          <tr>
+            <th>المنتج</th>
+            <th>الكمية</th>
+            <th>الإيراد</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if top_products %}
+            {% for p in top_products %}
+            <tr>
+              <td class="td-s" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;">
+                {{ p.name[:24] }}{% if p.name|length > 24 %}…{% endif %}
+              </td>
+              <td class="td-n">{{ "%.1f"|format(p.total_qty or 0) }}</td>
+              <td class="td-n" style="color:var(--acc)">{{ "%.0f"|format(p.total_amount or 0) }} {{ CURRENCY }}</td>
+            </tr>
+            {% endfor %}
+          {% else %}
+          <tr><td colspan="3" class="td-m" style="text-align:center;padding:20px">لا توجد مبيعات هذا الشهر</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Recent Sales -->
+  <div class="card">
+    <div class="card-h">
+      <span class="card-title"><i class="ti ti-receipt"></i> آخر المبيعات</span>
+      <a class="card-link" href="{{ url_for('sales.index') }}">السجل الكامل</a>
+    </div>
+    <div class="tw">
+      <table>
+        <thead>
+          <tr>
+            <th>الفاتورة</th>
+            <th>المبلغ</th>
+            <th>الدفع</th>
+            <th>الوقت</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if recent_sales %}
+            {% for s in recent_sales %}
+            <tr>
+              <td>
+                <a href="{{ url_for('sales.detail', sale_id=s.id) }}"
+                   class="b b-blue" style="text-decoration:none;">
+                  {{ s.invoice_number[-8:] }}
+                </a>
+              </td>
+              <td class="td-n">{{ "%.0f"|format(s.total) }} {{ CURRENCY }}</td>
+              <td>
+                {% if s.payment_method == 'cash' %}<span class="b b-green">نقدي</span>
+                {% elif s.payment_method == 'credit' %}<span class="b b-orange">آجل</span>
+                {% else %}<span class="b b-blue">تحويل</span>{% endif %}
+              </td>
+              <td class="td-n td-m">{{ s.created_at.strftime('%H:%M') }}</td>
+            </tr>
+            {% endfor %}
+          {% else %}
+          <tr><td colspan="4" class="td-m" style="text-align:center;padding:20px">لا توجد مبيعات اليوم</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Date label
+(function(){
+  const n=new Date();
+  const days=['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+  const months=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+  const el=document.getElementById('dash-date');
+  if(el) el.textContent=days[n.getDay()]+' '+n.getDate()+' '+months[n.getMonth()]+' '+n.getFullYear();
+})();
+
+// Chart
+const ctx = document.getElementById('salesChart');
+if(ctx){
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: {{ chart_labels | tojson }},
+      datasets: [{
+        data: {{ chart_data | tojson }},
+        backgroundColor: function(ctx){
+          const i = ctx.dataIndex;
+          const labels = {{ chart_labels | tojson }};
+          return i === labels.length-1
+            ? 'rgba(0,82,255,1)'
+            : 'rgba(0,82,255,0.15)';
+        },
+        borderRadius: 4,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: v => v.raw.toLocaleString('ar-LY') + ' {{ CURRENCY }}'
+          }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { family: 'JetBrains Mono', size: 10 }, color: '#94A3B8' } },
+        y: { grid: { color: '#F1F5F9' }, ticks: { font: { family: 'JetBrains Mono', size: 10 }, color: '#94A3B8', callback: v => v.toLocaleString() } }
+      }
+    }
+  });
+}
+</script>
+{% endblock %}

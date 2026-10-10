@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% block title %}تقرير الأصناف — {{ APP_NAME }}{% endblock %}
+{% block topbar_title %}تقرير الأصناف{% endblock %}
+{% block topbar_crumb %}التقارير / الأصناف{% endblock %}
+
+{% block page_header %}
+<div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;">
+  <div>
+    <h1 style="font-family:'Calistoga',serif;font-size:22px;">تقرير الأصناف</h1>
+    <p style="font-size:12px;color:var(--muted-fg);margin-top:3px;">{{ date_from_str }} — {{ date_to_str }}</p>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <button onclick="window.print()" class="btn btn-ghost"><i class="ti ti-printer"></i> طباعة</button>
+    <a href="{{ url_for('reports.index') }}" class="btn btn-ghost"><i class="ti ti-arrow-right"></i> رجوع</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<!-- Filters -->
+<div class="card" style="padding:14px 18px;margin-bottom:16px;">
+  <form method="GET" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+    <div>
+      <div class="fg-label">من تاريخ</div>
+      <input type="date" name="date_from" class="fg-input" style="width:160px;" value="{{ date_from_str }}"/>
+    </div>
+    <div>
+      <div class="fg-label">إلى تاريخ</div>
+      <input type="date" name="date_to" class="fg-input" style="width:160px;" value="{{ date_to_str }}"/>
+    </div>
+    <div>
+      <div class="fg-label">الأصناف الراكدة (أيام بدون بيع)</div>
+      <input type="number" name="idle_days" class="fg-input" style="width:120px;"
+             value="{{ idle_days }}" min="1" max="365"/>
+    </div>
+    <button type="submit" class="btn btn-primary"><i class="ti ti-filter"></i> عرض</button>
+  </form>
+</div>
+
+<!-- Summary -->
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
+  <div class="stat-side">
+    <div class="stat-side-label">الأكثر مبيعاً</div>
+    <div class="stat-side-value">{{ top_qty|length }}</div>
+    <div class="stat-side-footer">صنف في الفترة</div>
+  </div>
+  <div class="stat-side {% if low_stock %}stat-side-alert{% endif %}">
+    <div class="stat-side-label">النواقص</div>
+    <div class="stat-side-value">{{ low_stock|length }}</div>
+    <div class="stat-side-footer">وصلت لحد التنبيه</div>
+  </div>
+  <div class="stat-side">
+    <div class="stat-side-label">الأصناف الراكدة</div>
+    <div class="stat-side-value">{{ idle_products|length }}</div>
+    <div class="stat-side-footer">بدون بيع {{ idle_days }} يوم</div>
+  </div>
+  <div class="stat-side">
+    <div class="stat-side-label">قيمة الراكد</div>
+    <div class="stat-side-value" style="color:var(--orange);font-size:18px;">
+      {{ "%.0f"|format(idle_products|sum(attribute='stock_value')) }}
+      <span style="font-size:12px;font-weight:400;color:var(--muted-fg)">د.ل</span>
+    </div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+
+  <!-- Top by Qty -->
+  <div class="card">
+    <div class="card-h">
+      <span class="card-title"><i class="ti ti-award"></i> الأكثر مبيعاً بالكمية</span>
+    </div>
+    {% if top_qty %}
+    <div class="tw">
+      <table>
+        <thead><tr><th>#</th><th>المنتج</th><th>الكمية</th><th>الإيراد</th><th>النسبة</th></tr></thead>
+        <tbody>
+          {% set max_qty = top_qty[0].total_qty if top_qty else 1 %}
+          {% for p in top_qty %}
+          <tr>
+            <td>
+              {% if loop.index==1 %}<span class="b b-grad" style="font-size:14px;">1</span>
+              {% elif loop.index==2 %}<span class="b b-muted" style="font-size:14px;">2</span>
+              {% elif loop.index==3 %}<span class="b" style="background:var(--orange-bg);color:var(--orange);font-size:14px;">3</span>
+              {% else %}<span class="td-m" style="font-size:11px;">{{ loop.index }}</span>{% endif %}
+            </td>
+            <td class="td-s" style="max-width:150px;overflow:hidden;text-overflow:ellipsis;">{{ p.name }}</td>
+            <td><span class="b b-blue">{{ "%.1f"|format(p.total_qty or 0) }} {{ p.unit }}</span></td>
+            <td class="td-n td-m">{{ "%.0f"|format(p.total_rev or 0) }}</td>
+            <td>
+              <div style="width:80px;height:5px;background:var(--muted);border-radius:3px;overflow:hidden;">
+                <div style="height:100%;background:var(--grad);border-radius:3px;width:{{ ((p.total_qty or 0)/(max_qty or 1)*100)|round(0) }}%;"></div>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty" style="padding:28px;"><i class="ti ti-chart-off"></i><p>لا توجد مبيعات في هذه الفترة</p></div>
+    {% endif %}
+  </div>
+
+  <!-- Top by Revenue -->
+  <div class="card">
+    <div class="card-h">
+      <span class="card-title"><i class="ti ti-trending-up"></i> الأكثر مبيعاً بالقيمة</span>
+    </div>
+    {% if top_rev %}
+    <div class="tw">
+      <table>
+        <thead><tr><th>#</th><th>المنتج</th><th>الإيراد</th><th>النسبة</th></tr></thead>
+        <tbody>
+          {% set max_rev = top_rev[0].total_rev if top_rev else 1 %}
+          {% for p in top_rev %}
+          <tr>
+            <td>
+              {% if loop.index==1 %}<span class="b b-grad" style="font-size:14px;">1</span>
+              {% elif loop.index==2 %}<span class="b b-muted" style="font-size:14px;">2</span>
+              {% elif loop.index==3 %}<span class="b" style="background:var(--orange-bg);color:var(--orange);font-size:14px;">3</span>
+              {% else %}<span class="td-m" style="font-size:11px;">{{ loop.index }}</span>{% endif %}
+            </td>
+            <td class="td-s" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;">{{ p.name }}</td>
+            <td><span class="b b-green">{{ "%.0f"|format(p.total_rev or 0) }} د.ل</span></td>
+            <td>
+              <div style="width:80px;height:5px;background:var(--muted);border-radius:3px;overflow:hidden;">
+                <div style="height:100%;background:linear-gradient(135deg,#0F7B5A,#16A37A);border-radius:3px;width:{{ ((p.total_rev or 0)/(max_rev or 1)*100)|round(0) }}%;"></div>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty" style="padding:28px;"><i class="ti ti-chart-off"></i><p>لا توجد مبيعات في هذه الفترة</p></div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- Low Stock -->
+<div class="card" style="margin-bottom:14px;{% if low_stock %}border-color:rgba(180,83,9,.25);{% endif %}">
+  <div class="card-h">
+    <span class="card-title" style="{% if low_stock %}color:var(--orange){% endif %}">
+      <i class="ti ti-alert-triangle"></i> النواقص — وصلت لحد التنبيه
+    </span>
+    <span class="b {% if low_stock %}b-orange{% else %}b-green{% endif %}">{{ low_stock|length }}</span>
+  </div>
+  {% if low_stock %}
+  <div class="tw">
+    <table>
+      <thead><tr><th>المنتج</th><th>التصنيف</th><th>الكمية الحالية</th><th>حد التنبيه</th><th>الكمية المقترحة للطلب</th><th></th></tr></thead>
+      <tbody>
+        {% for p in low_stock %}
+        <tr>
+          <td class="td-s">{{ p.name }}</td>
+          <td>{% if p.category %}<span class="b b-blue">{{ p.category.name }}</span>{% else %}<span class="td-m">—</span>{% endif %}</td>
+          <td>
+            {% if p.quantity <= 0 %}<span class="b b-red">نفد تماماً</span>
+            {% else %}<span class="b b-orange">{{ p.quantity }} {{ p.unit }}</span>{% endif %}
+          </td>
+          <td class="td-n td-m">{{ p.low_stock_alert }} {{ p.unit }}</td>
+          <td>
+            <span class="b b-grad">{{ p.low_stock_alert * 3 }} {{ p.unit }}</span>
+          </td>
+          <td>
+            <a href="{{ url_for('products.edit', product_id=p.id) }}" class="btn btn-ghost btn-sm">
+              <i class="ti ti-edit"></i>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:24px;color:var(--green);display:flex;align-items:center;justify-content:center;gap:8px;">
+    <i class="ti ti-circle-check" style="font-size:20px;"></i>
+    <span style="font-size:13px;font-weight:600;">جميع المنتجات فوق حد التنبيه</span>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Idle Products -->
+<div class="card">
+  <div class="card-h">
+    <span class="card-title"><i class="ti ti-zzz"></i> الأصناف الراكدة — بدون بيع {{ idle_days }} يوم</span>
+    <span class="b b-muted">{{ idle_products|length }}</span>
+  </div>
+  {% if idle_products %}
+  <div class="tw">
+    <table>
+      <thead><tr><th>المنتج</th><th>التصنيف</th><th>الكمية</th><th>قيمة المخزون</th><th>سعر البيع</th></tr></thead>
+      <tbody>
+        {% for p in idle_products %}
+        <tr>
+          <td class="td-s">{{ p.name }}</td>
+          <td>{% if p.category %}<span class="b b-blue">{{ p.category.name }}</span>{% else %}<span class="td-m">—</span>{% endif %}</td>
+          <td class="td-n">{{ p.quantity }} {{ p.unit }}</td>
+          <td class="td-n" style="color:var(--orange);">{{ "%.2f"|format(p.stock_value) }}</td>
+          <td class="td-n td-m">{{ "%.2f"|format(p.sale_price) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr style="background:var(--muted);">
+          <td colspan="3" style="padding:9px 16px;font-size:12px;font-weight:700;text-align:left;">إجمالي قيمة الراكد</td>
+          <td style="padding:9px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--orange);">
+            {{ "%.2f"|format(idle_products|sum(attribute='stock_value')) }} د.ل
+          </td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:24px;color:var(--green);display:flex;align-items:center;justify-content:center;gap:8px;">
+    <i class="ti ti-circle-check" style="font-size:20px;"></i>
+    <span style="font-size:13px;font-weight:600;">لا توجد أصناف راكدة في هذه الفترة</span>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

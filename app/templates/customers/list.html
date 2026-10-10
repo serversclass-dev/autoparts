@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}العملاء — {{ APP_NAME }}{% endblock %}
+{% block topbar_title %}العملاء{% endblock %}
+{% block topbar_crumb %}الحسابات / العملاء{% endblock %}
+
+{% block page_header %}
+<div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;">
+  <div>
+    <h1 style="font-family:'Calistoga',serif;font-size:22px;">العملاء</h1>
+    <p style="font-size:12px;color:var(--muted-fg);margin-top:3px;">{{ customers.total }} عميل مسجّل</p>
+  </div>
+  <a href="{{ url_for('customers.create') }}" class="btn btn-primary">
+    <i class="ti ti-user-plus"></i> عميل جديد
+  </a>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<!-- Summary -->
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+  <div class="stat-hero" style="min-height:auto;padding:16px 20px;">
+    <div class="stat-hero-label">إجمالي المديونيات</div>
+    <div class="stat-hero-value" style="font-size:28px;">{{ "%.0f"|format(total_debt) }} <span class="stat-hero-unit">{{ CURRENCY }}</span></div>
+  </div>
+  <div class="stat-side">
+    <div class="stat-side-label">إجمالي العملاء</div>
+    <div class="stat-side-value">{{ customers.total }}</div>
+    <div class="stat-side-footer">عميل مسجّل</div>
+  </div>
+  <div class="stat-side {% if total_debt > 0 %}stat-side-alert{% endif %}">
+    <div class="stat-side-label">العملاء المدينون</div>
+    <div class="stat-side-value">
+      {{ customers.items | selectattr('balance','gt',0) | list | length }}
+      <span style="font-size:12px;font-weight:400;color:var(--muted-fg)">عميل</span>
+    </div>
+    <div class="stat-side-footer">لديهم رصيد مستحق</div>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="card" style="margin-bottom:14px;">
+  <div style="padding:14px 18px;">
+    <form method="GET">
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+        <div style="flex:1;min-width:200px;">
+          <div class="fg-label">بحث</div>
+          <div style="position:relative;">
+            <i class="ti ti-search" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted-fg);font-size:15px;"></i>
+            <input name="search" class="fg-input" style="padding-right:34px;" placeholder="الاسم أو الهاتف أو رقم السيارة..." value="{{ search }}"/>
+          </div>
+        </div>
+        <div style="min-width:150px;">
+          <div class="fg-label">الفلتر</div>
+          <select name="debt_only" class="fg-input">
+            <option value="">— كل العملاء —</option>
+            <option value="1" {% if debt_only %}selected{% endif %}>المدينون فقط</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button type="submit" class="btn btn-primary"><i class="ti ti-filter"></i> فلترة</button>
+          <a href="{{ url_for('customers.index') }}" class="btn btn-ghost"><i class="ti ti-x"></i></a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="tw">
+    {% set display = debt_customers if debt_only else customers.items %}
+    {% if display %}
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>الاسم</th>
+          <th>الهاتف</th>
+          <th>لوحة السيارة</th>
+          <th>الموديل</th>
+          <th>الفواتير</th>
+          <th>الرصيد</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in display %}
+        <tr>
+          <td class="td-m" style="font-size:11px;">{{ loop.index }}</td>
+          <td>
+            <a href="{{ url_for('customers.detail', customer_id=c.id) }}"
+               style="font-weight:700;color:var(--fg);text-decoration:none;">{{ c.name }}</a>
+            {% if c.notes %}
+            <div style="font-size:11px;color:var(--muted-fg);max-width:160px;overflow:hidden;text-overflow:ellipsis;">{{ c.notes }}</div>
+            {% endif %}
+          </td>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted-fg);">{{ c.phone or '—' }}</td>
+          <td>{% if c.car_plate %}<span class="b b-dark">{{ c.car_plate }}</span>{% else %}<span class="td-m">—</span>{% endif %}</td>
+          <td class="td-m">{{ c.car_model or '—' }}</td>
+          <td><span class="b b-blue">{{ c.sales.count() }}</span></td>
+          <td>
+            {% if c.balance > 0 %}<span class="b b-red">مدين {{ "%.2f"|format(c.balance) }} {{ CURRENCY }}</span>
+            {% elif c.balance < 0 %}<span class="b b-green">دائن {{ "%.2f"|format(c.balance|abs) }} {{ CURRENCY }}</span>
+            {% else %}<span class="b b-green">مسدد</span>{% endif %}
+          </td>
+          <td>
+            <div style="display:flex;gap:5px;">
+              <a href="{{ url_for('customers.detail', customer_id=c.id) }}" class="btn btn-ghost btn-sm"><i class="ti ti-eye"></i></a>
+              <a href="{{ url_for('customers.edit', customer_id=c.id) }}" class="btn btn-ghost btn-sm"><i class="ti ti-edit"></i></a>
+              {% if current_user.is_admin and not c.has_sales %}
+              <button class="btn btn-danger btn-sm"
+                      onclick="confirmDel('{{ url_for('customers.delete', customer_id=c.id) }}','{{ c.name }}')">
+                <i class="ti ti-trash"></i>
+              </button>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if not debt_only and customers.pages > 1 %}
+    <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-size:12px;color:var(--muted-fg);">{{ customers.total }} عميل</span>
+      <div class="pagination">
+        {% if customers.has_prev %}
+        <a class="page-btn" href="?page={{ customers.prev_num }}&search={{ search }}"><i class="ti ti-chevron-right"></i></a>
+        {% endif %}
+        {% for p in customers.iter_pages(left_edge=1,right_edge=1,left_current=2,right_current=2) %}
+          {% if p %}<a class="page-btn {% if p==customers.page %}active{% endif %}" href="?page={{ p }}&search={{ search }}">{{ p }}</a>
+          {% else %}<span class="page-btn disabled">…</span>{% endif %}
+        {% endfor %}
+        {% if customers.has_next %}
+        <a class="page-btn" href="?page={{ customers.next_num }}&search={{ search }}"><i class="ti ti-chevron-left"></i></a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty">
+      <i class="ti ti-users-off"></i>
+      <p>لا يوجد عملاء مطابقون</p>
+      <a href="{{ url_for('customers.create') }}" class="btn btn-primary" style="margin-top:12px;">
+        <i class="ti ti-user-plus"></i> أضف عميلاً
+      </a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Delete Modal -->
+<div class="modal-overlay" id="delModal">
+  <div class="modal-box">
+    <div class="modal-title">تأكيد الحذف</div>
+    <div class="modal-desc" id="delMsg"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('delModal')">إلغاء</button>
+      <form id="delForm" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <button type="submit" class="btn btn-danger"><i class="ti ti-trash"></i> نعم، احذف</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function confirmDel(url, name) {
+  document.getElementById('delForm').action = url;
+  document.getElementById('delMsg').textContent = 'هل أنت متأكد من حذف العميل "' + name + '"؟';
+  openModal('delModal');
+}
+</script>
+{% endblock %}

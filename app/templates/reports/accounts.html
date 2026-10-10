@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% block title %}تقرير الحسابات — {{ APP_NAME }}{% endblock %}
+{% block topbar_title %}تقرير الحسابات{% endblock %}
+{% block topbar_crumb %}التقارير / الحسابات{% endblock %}
+
+{% block page_header %}
+<div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;">
+  <div>
+    <h1 style="font-family:'Calistoga',serif;font-size:22px;">تقرير الحسابات</h1>
+    <p style="font-size:12px;color:var(--muted-fg);margin-top:3px;">مديونيات العملاء، مستحقات الموردين، قيمة المخزون</p>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <button onclick="window.print()" class="btn btn-ghost"><i class="ti ti-printer"></i> طباعة</button>
+    <a href="{{ url_for('reports.index') }}" class="btn btn-ghost"><i class="ti ti-arrow-right"></i> رجوع</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<!-- Summary Stats -->
+<div style="display:grid;grid-template-columns:1.1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+  <div class="stat-hero" style="min-height:auto;padding:16px 20px;">
+    <div class="stat-hero-label">صافي المركز المالي</div>
+    <div class="stat-hero-value" style="font-size:26px;">
+      {{ "%.0f"|format(stock_at_cost + total_customer_debt - total_supplier_debt) }}
+      <span class="stat-hero-unit">{{ CURRENCY }}</span>
+    </div>
+    <div class="stat-hero-footer">مخزون + مديونيات − مستحقات</div>
+  </div>
+  <div class="stat-side" style="{% if total_customer_debt > 0 %}border-color:rgba(192,57,43,.25){% endif %}">
+    <div class="stat-side-label">مديونيات العملاء</div>
+    <div class="stat-side-value" style="{% if total_customer_debt > 0 %}color:var(--red){% endif %}">
+      {{ "%.0f"|format(total_customer_debt) }}
+    </div>
+    <div class="stat-side-footer">{{ customers_with_debt|length }} عميل مدين</div>
+  </div>
+  <div class="stat-side" style="{% if total_supplier_debt > 0 %}border-color:rgba(180,83,9,.25){% endif %}">
+    <div class="stat-side-label">مستحقات الموردين</div>
+    <div class="stat-side-value" style="{% if total_supplier_debt > 0 %}color:var(--orange){% endif %}">
+      {{ "%.0f"|format(total_supplier_debt) }}
+    </div>
+    <div class="stat-side-footer">{{ suppliers_with_debt|length }} مورد</div>
+  </div>
+  <div class="stat-side">
+    <div class="stat-side-label">قيمة المخزون (تكلفة)</div>
+    <div class="stat-side-value">{{ "%.0f"|format(stock_at_cost) }}</div>
+    <div class="stat-side-footer">
+      ربح محتمل:
+      <span style="color:var(--green);font-weight:700;">{{ "%.0f"|format(stock_potential_profit) }} {{ CURRENCY }}</span>
+    </div>
+  </div>
+</div>
+
+<!-- Financial Position -->
+<div class="card" style="padding:20px;margin-bottom:16px;max-width:480px;">
+  <div style="font-size:13px;font-weight:800;color:var(--fg);margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border);">المركز المالي</div>
+  <div style="display:flex;flex-direction:column;gap:0;">
+    <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;">
+      <span style="color:var(--muted-fg);">قيمة المخزون (بالتكلفة)</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--orange);">+ {{ "%.2f"|format(stock_at_cost) }} {{ CURRENCY }}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;">
+      <span style="color:var(--muted-fg);">مديونيات العملاء (يُستحق لنا)</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--acc);">+ {{ "%.2f"|format(total_customer_debt) }} {{ CURRENCY }}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:2px solid var(--border);font-size:13px;">
+      <span style="color:var(--muted-fg);">مستحقات الموردين (علينا)</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--red);">— {{ "%.2f"|format(total_supplier_debt) }} {{ CURRENCY }}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:12px 0;font-size:16px;font-weight:800;">
+      <span style="font-family:'Calistoga',serif;">صافي المركز</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:20px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;">
+        {{ "%.2f"|format(stock_at_cost + total_customer_debt - total_supplier_debt) }} {{ CURRENCY }}
+      </span>
+    </div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+
+  <!-- Customer Debts -->
+  <div class="card">
+    <div class="card-h">
+      <span class="card-title" style="{% if customers_with_debt %}color:var(--red){% endif %}">
+        <i class="ti ti-users"></i> العملاء المدينون
+      </span>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <span class="b {% if customers_with_debt %}b-red{% else %}b-green{% endif %}">{{ customers_with_debt|length }}</span>
+        <a href="{{ url_for('customers.index', debt_only=1) }}" class="card-link">عرض الكل</a>
+      </div>
+    </div>
+    {% if customers_with_debt %}
+    <div class="tw">
+      <table>
+        <thead><tr><th>#</th><th>العميل</th><th>السيارة</th><th>الرصيد</th><th></th></tr></thead>
+        <tbody>
+          {% for c in customers_with_debt|sort(attribute='balance',reverse=True) %}
+          <tr>
+            <td class="td-m" style="font-size:11px;">{{ loop.index }}</td>
+            <td>
+              <a href="{{ url_for('customers.detail', customer_id=c.id) }}"
+                 style="font-weight:700;color:var(--fg);text-decoration:none;">{{ c.name }}</a>
+              {% if c.phone %}<div style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--muted-fg);">{{ c.phone }}</div>{% endif %}
+            </td>
+            <td>{% if c.car_plate %}<span class="b b-dark">{{ c.car_plate }}</span>{% else %}<span class="td-m">—</span>{% endif %}</td>
+            <td><span class="b b-red" style="font-family:'JetBrains Mono',monospace;">{{ "%.2f"|format(c.balance) }} {{ CURRENCY }}</span></td>
+            <td><a href="{{ url_for('customers.detail', customer_id=c.id) }}" class="btn btn-ghost btn-sm"><i class="ti ti-eye"></i></a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr style="background:var(--muted);">
+            <td colspan="3" style="padding:9px 16px;font-size:12px;font-weight:700;text-align:left;">الإجمالي</td>
+            <td style="padding:9px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--red);">{{ "%.2f"|format(total_customer_debt) }} {{ CURRENCY }}</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:28px;color:var(--green);display:flex;align-items:center;justify-content:center;gap:8px;">
+      <i class="ti ti-circle-check" style="font-size:20px;"></i>
+      <span style="font-size:13px;font-weight:600;">لا يوجد عملاء مدينون</span>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Supplier Debts -->
+  <div class="card">
+    <div class="card-h">
+      <span class="card-title" style="{% if suppliers_with_debt %}color:var(--orange){% endif %}">
+        <i class="ti ti-building-factory-2"></i> مستحقات الموردين
+      </span>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <span class="b {% if suppliers_with_debt %}b-orange{% else %}b-green{% endif %}">{{ suppliers_with_debt|length }}</span>
+        <a href="{{ url_for('suppliers.index', debt_only=1) }}" class="card-link">عرض الكل</a>
+      </div>
+    </div>
+    {% if suppliers_with_debt %}
+    <div class="tw">
+      <table>
+        <thead><tr><th>#</th><th>المورد</th><th>الهاتف</th><th>المستحق له</th><th></th></tr></thead>
+        <tbody>
+          {% for s in suppliers_with_debt|sort(attribute='balance',reverse=True) %}
+          <tr>
+            <td class="td-m" style="font-size:11px;">{{ loop.index }}</td>
+            <td>
+              <a href="{{ url_for('suppliers.detail', supplier_id=s.id) }}"
+                 style="font-weight:700;color:var(--fg);text-decoration:none;">{{ s.name }}</a>
+            </td>
+            <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted-fg);">{{ s.phone or '—' }}</td>
+            <td><span class="b b-orange" style="font-family:'JetBrains Mono',monospace;">{{ "%.2f"|format(s.balance) }} {{ CURRENCY }}</span></td>
+            <td><a href="{{ url_for('suppliers.detail', supplier_id=s.id) }}" class="btn btn-ghost btn-sm"><i class="ti ti-eye"></i></a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr style="background:var(--muted);">
+            <td colspan="3" style="padding:9px 16px;font-size:12px;font-weight:700;text-align:left;">الإجمالي</td>
+            <td style="padding:9px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--orange);">{{ "%.2f"|format(total_supplier_debt) }} {{ CURRENCY }}</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:28px;color:var(--green);display:flex;align-items:center;justify-content:center;gap:8px;">
+      <i class="ti ti-circle-check" style="font-size:20px;"></i>
+      <span style="font-size:13px;font-weight:600;">لا توجد مستحقات للموردين</span>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- Stock Summary -->
+<div class="card">
+  <div class="card-h">
+    <span class="card-title"><i class="ti ti-package"></i> ملخص المخزون</span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;padding:20px;">
+    <div style="text-align:center;padding:16px;border-left:1px solid var(--border);">
+      <div style="font-size:28px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--acc);">{{ total_products }}</div>
+      <div style="font-size:12px;color:var(--muted-fg);margin-top:4px;">منتج نشط</div>
+    </div>
+    <div style="text-align:center;padding:16px;border-left:1px solid var(--border);">
+      <div style="font-size:28px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--red);">{{ out_of_stock }}</div>
+      <div style="font-size:12px;color:var(--muted-fg);margin-top:4px;">منتج نفد</div>
+    </div>
+    <div style="text-align:center;padding:16px;border-left:1px solid var(--border);">
+      <div style="font-size:22px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--orange);">{{ "%.0f"|format(stock_at_cost) }}</div>
+      <div style="font-size:12px;color:var(--muted-fg);margin-top:4px;">قيمة بالتكلفة ({{ CURRENCY }})</div>
+    </div>
+    <div style="text-align:center;padding:16px;">
+      <div style="font-size:22px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--green);">{{ "%.0f"|format(stock_potential_profit) }}</div>
+      <div style="font-size:12px;color:var(--muted-fg);margin-top:4px;">ربح محتمل ({{ CURRENCY }})</div>
+    </div>
+  </div>
+  <div style="margin:0 20px 20px;background:var(--muted);border-radius:8px;overflow:hidden;height:8px;">
+    {% set cost_pct = (stock_at_cost / stock_at_price * 100)|round(1) if stock_at_price else 0 %}
+    <div style="height:100%;background:var(--grad);width:{{ cost_pct }}%;transition:width .5s;"></div>
+  </div>
+  <div style="padding:0 20px 16px;display:flex;justify-content:space-between;font-size:11px;color:var(--muted-fg);">
+    <span>التكلفة: {{ "%.0f"|format(stock_at_cost) }} {{ CURRENCY }} ({{ cost_pct }}%)</span>
+    <span>سعر البيع: {{ "%.0f"|format(stock_at_price) }} {{ CURRENCY }}</span>
+  </div>
+</div>
+
+{% endblock %}

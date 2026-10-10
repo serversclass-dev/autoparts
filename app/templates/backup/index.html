@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% block title %}النسخ الاحتياطي — {{ APP_NAME }}{% endblock %}
+{% block topbar_title %}النسخ الاحتياطي{% endblock %}
+{% block topbar_crumb %}الإعدادات / النسخ الاحتياطي{% endblock %}
+
+{% block page_header %}
+<div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;">
+  <div>
+    <h1 style="font-family:'Calistoga',serif;font-size:22px;">النسخ الاحتياطي</h1>
+    <p style="font-size:12px;color:var(--muted-fg);margin-top:3px;">إدارة نسخ قاعدة البيانات واستعادتها</p>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <form method="POST" action="{{ url_for('backup.create') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+      <button type="submit" class="btn btn-primary">
+        <i class="ti ti-database-export"></i> نسخة احتياطية الآن
+      </button>
+    </form>
+    <a href="{{ url_for('settings.index') }}" class="btn btn-ghost">
+      <i class="ti ti-arrow-right"></i> الإعدادات
+    </a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<!-- Info -->
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+  <div class="stat-side">
+    <div class="stat-side-label">عدد النسخ المتوفرة</div>
+    <div class="stat-side-value">{{ backups|length }}</div>
+    <div class="stat-side-footer">يُحتفظ بآخر 30 نسخة</div>
+  </div>
+  <div class="stat-side">
+    <div class="stat-side-label">أحدث نسخة</div>
+    <div class="stat-side-value" style="font-size:14px;">
+      {% if backups %}{{ backups[0].created.strftime('%Y-%m-%d') }}{% else %}—{% endif %}
+    </div>
+    <div class="stat-side-footer">
+      {% if backups %}{{ backups[0].size_kb }} KB{% else %}لا توجد نسخ{% endif %}
+    </div>
+  </div>
+  <div class="stat-side">
+    <div class="stat-side-label">إجمالي الحجم</div>
+    <div class="stat-side-value" style="font-size:14px;">
+      {{ "%.1f"|format(backups|sum(attribute='size_kb')/1024) if backups else 0 }} MB
+    </div>
+    <div class="stat-side-footer">مجلد backups</div>
+  </div>
+</div>
+
+<!-- Alert -->
+<div style="background:rgba(192,57,43,.05);border:1px solid rgba(192,57,43,.2);border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--red);display:flex;align-items:flex-start;gap:10px;">
+  <i class="ti ti-alert-circle" style="font-size:18px;flex-shrink:0;margin-top:1px;"></i>
+  <div>
+    <strong>تحذير هام:</strong> عند استعادة نسخة احتياطية، ستُحذف <strong>جميع البيانات الحالية</strong> وتُستبدل بالنسخة المختارة.
+    يتم إنشاء نسخة أمان تلقائياً قبل أي استعادة.
+  </div>
+</div>
+
+<!-- Backups Table -->
+<div class="card">
+  <div class="card-h">
+    <span class="card-title"><i class="ti ti-database"></i> النسخ الاحتياطية المتوفرة</span>
+  </div>
+
+  {% if backups %}
+  <div class="tw">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>اسم الملف</th>
+          <th>الحجم</th>
+          <th>النوع</th>
+          <th>تاريخ الإنشاء</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in backups %}
+        <tr>
+          <td class="td-m" style="font-size:11px;">{{ loop.index }}</td>
+          <td>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--fg);font-weight:500;">
+              {{ b.filename }}
+            </span>
+          </td>
+          <td>
+            <span class="b b-muted" style="font-family:'JetBrains Mono',monospace;">{{ b.size_kb }} KB</span>
+          </td>
+          <td>
+            {% if 'manual' in b.filename %}
+              <span class="b b-blue">يدوي</span>
+            {% elif 'pre_restore' in b.filename %}
+              <span class="b b-orange">أمان قبل استعادة</span>
+            {% elif 'auto' in b.filename %}
+              <span class="b b-green">تلقائي</span>
+            {% else %}
+              <span class="b b-muted">أخرى</span>
+            {% endif %}
+          </td>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted-fg);">
+            {{ b.created.strftime('%Y-%m-%d %H:%M:%S') }}
+          </td>
+          <td>
+            <div style="display:flex;gap:5px;">
+              <a href="{{ url_for('backup.download', filename=b.filename) }}"
+                 class="btn btn-ghost btn-sm" title="تحميل">
+                <i class="ti ti-download"></i>
+              </a>
+              <button class="btn btn-primary btn-sm"
+                      onclick="confirmRestore('{{ b.filename }}')" title="استعادة">
+                <i class="ti ti-database-import"></i>
+              </button>
+              <button class="btn btn-danger btn-sm"
+                      onclick="confirmDelete('{{ url_for('backup.delete', filename=b.filename) }}','{{ b.filename }}')" title="حذف">
+                <i class="ti ti-trash"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">
+    <i class="ti ti-database-off"></i>
+    <p>لا توجد نسخ احتياطية بعد</p>
+    <form method="POST" action="{{ url_for('backup.create') }}" style="margin-top:12px;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+      <button type="submit" class="btn btn-primary">
+        <i class="ti ti-database-export"></i> إنشاء أول نسخة
+      </button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Restore Modal -->
+<div class="modal-overlay" id="restoreModal">
+  <div class="modal-box">
+    <div style="width:48px;height:48px;border-radius:50%;background:var(--orange-bg);display:flex;align-items:center;justify-content:center;margin-bottom:14px;">
+      <i class="ti ti-database-import" style="font-size:22px;color:var(--orange);"></i>
+    </div>
+    <div class="modal-title">تأكيد الاستعادة</div>
+    <div class="modal-desc" id="restoreMsg"></div>
+    <div style="background:var(--red-bg);border:1px solid rgba(192,57,43,.2);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--red);">
+      <strong>⚠️ تحذير:</strong>
+      <ul style="margin:4px 0 0 0;padding-right:14px;line-height:1.8;">
+        <li>ستُحذف جميع البيانات الحالية</li>
+        <li>تُنشأ نسخة أمان تلقائياً قبل التنفيذ</li>
+        <li>لا يمكن التراجع عن هذه العملية</li>
+      </ul>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('restoreModal')">إلغاء</button>
+      <form id="restoreForm" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <button type="submit" class="btn btn-primary" style="background:linear-gradient(135deg,#B45309,#D97706);box-shadow:0 4px 14px rgba(180,83,9,.2);">
+          <i class="ti ti-database-import"></i> نعم، استعادة الآن
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Modal -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal-box">
+    <div class="modal-title">حذف النسخة الاحتياطية</div>
+    <div class="modal-desc" id="deleteMsg"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('deleteModal')">إلغاء</button>
+      <form id="deleteForm" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <button type="submit" class="btn btn-danger"><i class="ti ti-trash"></i> حذف</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function confirmRestore(filename) {
+  document.getElementById('restoreForm').action = `/backup/restore/${filename}`;
+  document.getElementById('restoreMsg').textContent = `استعادة النسخة: "${filename}"`;
+  openModal('restoreModal');
+}
+function confirmDelete(url, filename) {
+  document.getElementById('deleteForm').action = url;
+  document.getElementById('deleteMsg').textContent = `حذف النسخة: "${filename}"`;
+  openModal('deleteModal');
+}
+</script>
+{% endblock %}

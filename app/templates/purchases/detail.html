@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+{% block title %}فاتورة شراء {{ purchase.invoice_number }} — {{ APP_NAME }}{% endblock %}
+{% block topbar_title %}تفاصيل فاتورة الشراء{% endblock %}
+{% block topbar_crumb %}المشتريات / {{ purchase.invoice_number }}{% endblock %}
+
+{% block page_header %}
+<div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;">
+  <div>
+    <h1 style="font-family:'Calistoga',serif;font-size:22px;">{{ purchase.invoice_number }}</h1>
+    <p style="font-size:12px;color:var(--muted-fg);margin-top:3px;">
+      {{ purchase.purchase_date.strftime('%Y-%m-%d') }} —
+      {{ purchase.user.full_name if purchase.user else '—' }}
+    </p>
+  </div>
+  <div style="display:flex;gap:8px;">
+    {% if current_user.is_admin and purchase.status != 'cancelled' %}
+    <button onclick="openModal('cancelModal')" class="btn btn-danger">
+      <i class="ti ti-ban"></i> إلغاء الفاتورة
+    </button>
+    {% endif %}
+    <a href="{{ url_for('purchases.index') }}" class="btn btn-ghost">
+      <i class="ti ti-arrow-right"></i> رجوع
+    </a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+
+{% if purchase.status == 'cancelled' %}
+<div class="strip" style="background:var(--red-bg);border-color:rgba(192,57,43,.2);color:var(--red);margin-bottom:16px;">
+  <i class="ti ti-ban"></i>
+  هذه الفاتورة <strong>ملغاة</strong> — تم خصم الكميات من المخزون.
+</div>
+{% endif %}
+
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px;">
+
+  <!-- Invoice Info -->
+  <div class="card" style="padding:18px;">
+    <div style="font-size:12px;font-weight:700;color:var(--muted-fg);margin-bottom:12px;display:flex;align-items:center;gap:6px;">
+      <i class="ti ti-shopping-cart" style="font-size:14px;"></i> معلومات الفاتورة
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span style="color:var(--muted-fg);">رقم الفاتورة</span>
+        <span class="b b-orange">{{ purchase.invoice_number }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span style="color:var(--muted-fg);">التاريخ</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;">{{ purchase.purchase_date.strftime('%Y-%m-%d') }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span style="color:var(--muted-fg);">المسجّل</span>
+        <span style="font-weight:600;">{{ purchase.user.full_name if purchase.user else '—' }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span style="color:var(--muted-fg);">طريقة الدفع</span>
+        {% if purchase.payment_method=='cash' %}<span class="b b-green">نقدي</span>
+        {% elif purchase.payment_method=='credit' %}<span class="b b-orange">آجل</span>
+        {% else %}<span class="b b-blue">تحويل</span>{% endif %}
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span style="color:var(--muted-fg);">الحالة</span>
+        {% if purchase.status=='received' %}<span class="b b-green">مستلمة</span>
+        {% elif purchase.status=='cancelled' %}<span class="b b-muted">ملغاة</span>
+        {% else %}<span class="b b-blue">معلقة</span>{% endif %}
+      </div>
+      {% if purchase.notes %}
+      <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:2px;">
+        <div style="font-size:11px;color:var(--muted-fg);margin-bottom:3px;">ملاحظات</div>
+        <div style="font-size:12px;">{{ purchase.notes }}</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Supplier Info -->
+  <div class="card" style="padding:18px;">
+    <div style="font-size:12px;font-weight:700;color:var(--muted-fg);margin-bottom:12px;display:flex;align-items:center;gap:6px;">
+      <i class="ti ti-building-factory-2" style="font-size:14px;"></i> بيانات المورد
+    </div>
+    {% if purchase.supplier %}
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span style="color:var(--muted-fg);">الاسم</span>
+        <a href="{{ url_for('suppliers.detail', supplier_id=purchase.supplier.id) }}"
+           style="font-weight:700;color:var(--fg);text-decoration:none;">{{ purchase.supplier.name }}</a>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span style="color:var(--muted-fg);">الهاتف</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;">{{ purchase.supplier.phone or '—' }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span style="color:var(--muted-fg);">العنوان</span>
+        <span style="color:var(--muted-fg);font-size:11px;max-width:140px;text-align:left;">{{ purchase.supplier.address or '—' }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;border-top:1px solid var(--border);padding-top:8px;margin-top:4px;">
+        <span style="color:var(--muted-fg);">رصيده الحالي</span>
+        <span style="font-weight:700;{% if purchase.supplier.balance > 0 %}color:var(--orange){% else %}color:var(--green){% endif %}">
+          {{ purchase.supplier.balance_label }}
+        </span>
+      </div>
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:24px 0;color:var(--muted-fg);">
+      <i class="ti ti-building-factory-off" style="font-size:28px;opacity:.2;"></i>
+      <p style="font-size:12px;margin-top:8px;">بدون مورد</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Totals -->
+  <div class="card" style="padding:18px;">
+    <div style="font-size:12px;font-weight:700;color:var(--muted-fg);margin-bottom:12px;display:flex;align-items:center;gap:6px;">
+      <i class="ti ti-calculator" style="font-size:14px;"></i> ملخص المبلغ
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span style="color:var(--muted-fg);">المجموع الفرعي</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-weight:600;">{{ "%.2f"|format(purchase.subtotal) }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;border-top:2px solid var(--border);padding-top:10px;margin-top:4px;">
+        <span style="font-size:15px;font-weight:800;">الإجمالي</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:var(--orange);">{{ "%.2f"|format(purchase.total) }}</span>
+      </div>
+      {% if purchase.payment_method != 'credit' %}
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span style="color:var(--muted-fg);">المدفوع</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-weight:600;">{{ "%.2f"|format(purchase.paid) }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span style="color:var(--muted-fg);">المتبقي</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-weight:600;{% if purchase.remaining > 0 %}color:var(--red){% else %}color:var(--green){% endif %}">
+          {{ "%.2f"|format(purchase.remaining) }}
+        </span>
+      </div>
+      {% else %}
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span style="color:var(--orange);">المستحق للمورد</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--orange);">{{ "%.2f"|format(purchase.total) }}</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<!-- Items Table -->
+<div class="card">
+  <div class="card-h">
+    <span class="card-title"><i class="ti ti-list"></i> بنود الفاتورة</span>
+    <span class="b b-orange">{{ purchase.items.count() }} بند</span>
+  </div>
+  <div class="tw">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>المنتج</th>
+          <th>الكمية</th>
+          <th>سعر الشراء</th>
+          <th>الإجمالي</th>
+          <th>المخزون الحالي</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in purchase.items %}
+        <tr>
+          <td class="td-m" style="font-size:11px;">{{ loop.index }}</td>
+          <td>
+            <div class="td-s">{{ item.product.name }}</div>
+            {% if item.product.category %}
+            <div style="font-size:11px;color:var(--muted-fg);">{{ item.product.category.name }}</div>
+            {% endif %}
+          </td>
+          <td class="td-n">{{ item.quantity }} {{ item.product.unit }}</td>
+          <td class="td-n">{{ "%.2f"|format(item.unit_price) }}</td>
+          <td class="td-n" style="color:var(--orange);font-weight:700;">{{ "%.2f"|format(item.total) }}</td>
+          <td>
+            {% if item.product.quantity <= 0 %}<span class="b b-red">نفد</span>
+            {% elif item.product.is_low_stock %}<span class="b b-orange">{{ item.product.quantity }} {{ item.product.unit }}</span>
+            {% else %}<span class="b b-green">{{ item.product.quantity }} {{ item.product.unit }}</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr style="background:var(--muted);">
+          <td colspan="4" style="padding:10px 16px;font-size:12px;font-weight:700;text-align:left;">الإجمالي</td>
+          <td style="padding:10px 16px;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--orange);">{{ "%.2f"|format(purchase.total) }}</td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+
+<!-- Cancel Modal -->
+{% if current_user.is_admin and purchase.status != 'cancelled' %}
+<div class="modal-overlay" id="cancelModal">
+  <div class="modal-box">
+    <div style="width:48px;height:48px;border-radius:50%;background:var(--red-bg);display:flex;align-items:center;justify-content:center;margin-bottom:14px;">
+      <i class="ti ti-ban" style="font-size:22px;color:var(--red);"></i>
+    </div>
+    <div class="modal-title">إلغاء فاتورة الشراء</div>
+    <div class="modal-desc">
+      هل أنت متأكد من إلغاء الفاتورة <strong>{{ purchase.invoice_number }}</strong>؟
+      سيتم خصم الكميات من المخزون. تأكد أن المخزون لن يصبح سالباً.
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('cancelModal')">تراجع</button>
+      <form method="POST" action="{{ url_for('purchases.cancel', purchase_id=purchase.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <button type="submit" class="btn btn-danger"><i class="ti ti-ban"></i> نعم، إلغاء</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

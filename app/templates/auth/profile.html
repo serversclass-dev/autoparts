@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+{% block title %}الملف الشخصي — {{ APP_NAME }}{% endblock %}
+{% block topbar_title %}الملف الشخصي{% endblock %}
+{% block topbar_crumb %}الحساب / الملف الشخصي{% endblock %}
+
+{% block page_header %}
+<div style="padding:20px 24px 0;">
+  <h1 style="font-family:'Calistoga',serif;font-size:22px;">الملف الشخصي</h1>
+  <p style="font-size:12px;color:var(--muted-fg);margin-top:3px;">تعديل بياناتك الشخصية وكلمة المرور</p>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:860px;">
+
+  <!-- Personal Info + Password -->
+  <div style="grid-column:span 1;">
+    <div class="card" style="padding:22px;margin-bottom:14px;">
+      <div style="font-size:13px;font-weight:800;color:var(--fg);margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;">
+        <i class="ti ti-user" style="color:var(--acc);"></i> البيانات الشخصية
+      </div>
+
+      <form method="POST" action="{{ url_for('auth.profile') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+        <div class="fg-wrap">
+          <label class="fg-label">اسم المستخدم</label>
+          <input type="text" class="fg-input" value="{{ current_user.username }}"
+                 disabled style="background:var(--muted);color:var(--muted-fg);cursor:not-allowed;"/>
+          <div style="font-size:11px;color:var(--muted-fg);margin-top:4px;">لا يمكن تغيير اسم المستخدم.</div>
+        </div>
+
+        <div class="fg-wrap">
+          <label class="fg-label">الاسم الكامل <span style="color:var(--red)">*</span></label>
+          <input type="text" name="full_name" class="fg-input"
+                 value="{{ current_user.full_name }}" required/>
+        </div>
+
+        <div class="fg-wrap">
+          <label class="fg-label">الدور الوظيفي</label>
+          <input type="text" class="fg-input" value="{{ current_user.role_label }}"
+                 disabled style="background:var(--muted);color:var(--muted-fg);cursor:not-allowed;"/>
+        </div>
+
+        <div style="height:1px;background:var(--border);margin:18px 0;"></div>
+        <div style="font-size:13px;font-weight:800;color:var(--fg);margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+          <i class="ti ti-lock" style="color:var(--acc);font-size:15px;"></i> تغيير كلمة المرور
+        </div>
+
+        <div class="fg-wrap">
+          <label class="fg-label">كلمة المرور الحالية</label>
+          <div style="position:relative;">
+            <i class="ti ti-lock" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted-fg);font-size:15px;"></i>
+            <input type="password" name="current_password" class="fg-input" style="padding-right:34px;"
+                   placeholder="اتركه فارغاً إن لم ترد التغيير"/>
+          </div>
+        </div>
+
+        <div class="fg-wrap">
+          <label class="fg-label">كلمة المرور الجديدة</label>
+          <div style="position:relative;">
+            <i class="ti ti-lock-open" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted-fg);font-size:15px;"></i>
+            <input type="password" name="new_password" id="newPwd" class="fg-input" style="padding-right:34px;"
+                   placeholder="6 أحرف على الأقل" oninput="checkStrength()"/>
+          </div>
+          <!-- Strength bar -->
+          <div style="margin-top:6px;">
+            <div style="height:4px;background:var(--muted);border-radius:2px;overflow:hidden;">
+              <div id="strengthBar" style="height:100%;width:0%;border-radius:2px;transition:all .3s;"></div>
+            </div>
+            <div id="strengthLabel" style="font-size:10px;color:var(--muted-fg);margin-top:3px;"></div>
+          </div>
+        </div>
+
+        <div class="fg-wrap">
+          <label class="fg-label">تأكيد كلمة المرور الجديدة</label>
+          <div style="position:relative;">
+            <i class="ti ti-lock-check" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted-fg);font-size:15px;"></i>
+            <input type="password" name="confirm_password" id="confirmPwd" class="fg-input" style="padding-right:34px;"
+                   placeholder="أعد إدخال كلمة المرور الجديدة" oninput="checkMatch()"/>
+          </div>
+          <div id="matchMsg" style="font-size:11px;margin-top:4px;"></div>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:6px;">
+          <button type="submit" class="btn btn-primary">
+            <i class="ti ti-device-floppy"></i> حفظ التغييرات
+          </button>
+          <a href="{{ url_for('dashboard.index') }}" class="btn btn-ghost">إلغاء</a>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <!-- Account Info -->
+  <div style="grid-column:span 1;">
+    <!-- Avatar / Info Card -->
+    <div class="card" style="padding:22px;margin-bottom:14px;">
+      <div style="text-align:center;padding-bottom:18px;border-bottom:1px solid var(--border);margin-bottom:16px;">
+        <div style="width:72px;height:72px;border-radius:50%;background:var(--grad);
+          display:flex;align-items:center;justify-content:center;
+          font-size:28px;font-weight:800;color:#fff;margin:0 auto 10px;">
+          {{ current_user.full_name[0] }}
+        </div>
+        <div style="font-family:'Calistoga',serif;font-size:18px;color:var(--fg);">{{ current_user.full_name }}</div>
+        <div style="margin-top:6px;">
+          {% if current_user.is_admin %}
+            <span class="b b-grad">مدير النظام</span>
+          {% else %}
+            <span class="b b-muted">كاشير</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div style="font-size:13px;font-weight:800;color:var(--fg);margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+        <i class="ti ti-info-circle" style="color:var(--acc);font-size:15px;"></i> معلومات الحساب
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:9px;">
+        <div style="display:flex;justify-content:space-between;font-size:12px;">
+          <span style="color:var(--muted-fg);">اسم المستخدم</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--fg);">{{ current_user.username }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;">
+          <span style="color:var(--muted-fg);">تاريخ الإنشاء</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;">
+            {{ current_user.created_at.strftime('%Y-%m-%d') if current_user.created_at else '—' }}
+          </span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;">
+          <span style="color:var(--muted-fg);">آخر دخول</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;">
+            {{ current_user.last_login.strftime('%Y-%m-%d %H:%M') if current_user.last_login else '—' }}
+          </span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;">
+          <span style="color:var(--muted-fg);">الحالة</span>
+          {% if current_user.is_active %}
+            <span class="b b-green"><i class="ti ti-circle-check" style="font-size:11px;"></i> نشط</span>
+          {% else %}
+            <span class="b b-red">معطل</span>
+          {% endif %}
+        </div>
+        {% if current_user.failed_attempts > 0 %}
+        <div style="display:flex;justify-content:space-between;font-size:12px;">
+          <span style="color:var(--muted-fg);">محاولات فاشلة</span>
+          <span class="b b-orange" style="font-family:'JetBrains Mono',monospace;">{{ current_user.failed_attempts }}</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Quick Links -->
+    <div class="card" style="padding:18px;">
+      <div style="font-size:12px;font-weight:700;color:var(--muted-fg);margin-bottom:10px;">روابط سريعة</div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <a href="{{ url_for('dashboard.index') }}" class="btn btn-ghost" style="justify-content:flex-start;">
+          <i class="ti ti-layout-dashboard"></i> لوحة التحكم
+        </a>
+        <a href="{{ url_for('sales.pos') }}" class="btn btn-ghost" style="justify-content:flex-start;">
+          <i class="ti ti-point-of-sale"></i> نقطة البيع
+        </a>
+        {% if current_user.is_admin %}
+        <a href="{{ url_for('settings.index') }}" class="btn btn-ghost" style="justify-content:flex-start;">
+          <i class="ti ti-settings-2"></i> الإعدادات
+        </a>
+        {% endif %}
+        <a href="{{ url_for('auth.logout') }}" class="btn btn-danger" style="justify-content:flex-start;">
+          <i class="ti ti-logout"></i> تسجيل الخروج
+        </a>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function checkStrength() {
+  const v = document.getElementById('newPwd').value;
+  const bar = document.getElementById('strengthBar');
+  const lbl = document.getElementById('strengthLabel');
+  if (!v) { bar.style.width='0%'; lbl.textContent=''; return; }
+  let s = 0;
+  if (v.length >= 6) s++;
+  if (v.length >= 10) s++;
+  if (/[A-Z]/.test(v)) s++;
+  if (/[0-9]/.test(v)) s++;
+  if (/[^A-Za-z0-9]/.test(v)) s++;
+  const levels = [
+    {w:'20%', c:'#C0392B', t:'ضعيفة جداً'},
+    {w:'40%', c:'#E67E22', t:'ضعيفة'},
+    {w:'60%', c:'#F39C12', t:'متوسطة'},
+    {w:'80%', c:'#27AE60', t:'جيدة'},
+    {w:'100%', c:'#0D7C5A', t:'قوية'},
+  ];
+  const l = levels[Math.min(s-1, 4)] || levels[0];
+  bar.style.width = l.w;
+  bar.style.background = l.c;
+  lbl.textContent = 'قوة كلمة المرور: ' + l.t;
+  lbl.style.color = l.c;
+  checkMatch();
+}
+
+function checkMatch() {
+  const pw = document.getElementById('newPwd').value;
+  const cf = document.getElementById('confirmPwd').value;
+  const msg = document.getElementById('matchMsg');
+  if (!cf) { msg.textContent=''; return; }
+  if (pw === cf) {
+    msg.textContent = '✓ كلمتا المرور متطابقتان';
+    msg.style.color = 'var(--green)';
+  } else {
+    msg.textContent = '✗ كلمتا المرور غير متطابقتين';
+    msg.style.color = 'var(--red)';
+  }
+}
+</script>
+{% endblock %}

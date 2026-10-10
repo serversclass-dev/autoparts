@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}{% if user %}تعديل مستخدم{% else %}مستخدم جديد{% endif %} — {{ APP_NAME }}{% endblock %}
+{% block topbar_title %}{% if user %}تعديل: {{ user.username }}{% else %}مستخدم جديد{% endif %}{% endblock %}
+{% block topbar_crumb %}المستخدمون{% endblock %}
+
+{% block page_header %}
+<div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;">
+  <div>
+    <h1 style="font-family:'Calistoga',serif;font-size:22px;">
+      {% if user %}تعديل: {{ user.username }}{% else %}إنشاء مستخدم جديد{% endif %}
+    </h1>
+    <p style="font-size:12px;color:var(--muted-fg);margin-top:3px;">
+      {% if user %}تعديل بيانات المستخدم وصلاحياته{% else %}أدخل بيانات المستخدم الجديد{% endif %}
+    </p>
+  </div>
+  <a href="{{ url_for('settings.users') }}" class="btn btn-ghost">
+    <i class="ti ti-arrow-right"></i> رجوع
+  </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="display:grid;grid-template-columns:1fr 300px;gap:16px;max-width:860px;">
+
+  <div class="card" style="padding:22px;">
+    <form method="POST"
+          action="{% if user %}{{ url_for('settings.edit_user', user_id=user.id) }}{% else %}{{ url_for('settings.create_user') }}{% endif %}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+
+        <div class="fg-wrap">
+          <label class="fg-label">اسم المستخدم <span style="color:var(--red)">*</span></label>
+          <div style="position:relative;">
+            <i class="ti ti-at" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted-fg);font-size:15px;"></i>
+            <input name="username" class="fg-input" style="padding-right:34px;font-family:'JetBrains Mono',monospace;"
+                   placeholder="username"
+                   value="{{ user.username if user else '' }}"
+                   {% if user %}readonly style="padding-right:34px;background:var(--muted);font-family:'JetBrains Mono',monospace;"{% endif %}
+                   required autofocus/>
+          </div>
+          {% if user %}
+          <div style="font-size:11px;color:var(--muted-fg);margin-top:4px;">لا يمكن تغيير اسم المستخدم.</div>
+          {% endif %}
+        </div>
+
+        <div class="fg-wrap">
+          <label class="fg-label">الاسم الكامل <span style="color:var(--red)">*</span></label>
+          <input name="full_name" class="fg-input" placeholder="الاسم الكامل"
+                 value="{{ user.full_name if user else '' }}" required/>
+        </div>
+
+        <div class="fg-wrap">
+          <label class="fg-label">الدور <span style="color:var(--red)">*</span></label>
+          <select name="role" class="fg-input">
+            <option value="cashier" {% if user and user.role=='cashier' %}selected{% elif not user %}selected{% endif %}>كاشير</option>
+            <option value="admin" {% if user and user.role=='admin' %}selected{% endif %}>مدير</option>
+          </select>
+        </div>
+
+        {% if user %}
+        <div class="fg-wrap">
+          <label class="fg-label">الحالة</label>
+          <select name="is_active" class="fg-input">
+            <option value="1" {% if user.is_active %}selected{% endif %}>نشط</option>
+            <option value="0" {% if not user.is_active %}selected{% endif %}>معطل</option>
+          </select>
+        </div>
+        {% endif %}
+
+        {% if not user %}
+        <div class="fg-wrap" style="grid-column:span 2;">
+          <label class="fg-label">كلمة المرور <span style="color:var(--red)">*</span></label>
+          <div style="position:relative;">
+            <input type="password" name="password" id="pwField" class="fg-input"
+                   style="padding-left:40px;"
+                   placeholder="6 أحرف على الأقل" minlength="6" required/>
+            <button type="button" onclick="togglePw()"
+                    style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted-fg);cursor:pointer;font-size:16px;">
+              <i class="ti ti-eye" id="eyeIcon"></i>
+            </button>
+          </div>
+          <div style="font-size:11px;color:var(--muted-fg);margin-top:4px;">سيُجبر المستخدم على تغييرها عند أول دخول.</div>
+        </div>
+        {% endif %}
+
+      </div>
+
+      {% if user %}
+      <div style="background:rgba(0,82,255,.04);border:1px solid rgba(0,82,255,.15);border-radius:8px;padding:12px 14px;margin-top:6px;margin-bottom:16px;">
+        <div style="font-size:12px;font-weight:700;color:var(--acc);margin-bottom:8px;">معلومات الحساب</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
+          <div style="display:flex;justify-content:space-between;">
+            <span style="color:var(--muted-fg);">تاريخ الإنشاء</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:11px;">{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '—' }}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;">
+            <span style="color:var(--muted-fg);">آخر دخول</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:11px;">{{ user.last_login.strftime('%Y-%m-%d %H:%M') if user.last_login else '—' }}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;">
+            <span style="color:var(--muted-fg);">محاولات فاشلة</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:11px;{% if user.failed_attempts > 0 %}color:var(--orange){% endif %}">{{ user.failed_attempts }}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;">
+            <span style="color:var(--muted-fg);">حالة القفل</span>
+            {% if user.is_locked %}
+              <span style="font-size:11px;color:var(--red);font-weight:600;">مقفل مؤقتاً</span>
+            {% else %}
+              <span style="font-size:11px;color:var(--green);font-weight:600;">غير مقفل</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <div style="display:flex;gap:10px;">
+        <button type="submit" class="btn btn-primary">
+          <i class="ti ti-device-floppy"></i>
+          {% if user %}حفظ التعديلات{% else %}إنشاء المستخدم{% endif %}
+        </button>
+        <a href="{{ url_for('settings.users') }}" class="btn btn-ghost">إلغاء</a>
+      </div>
+
+    </form>
+  </div>
+
+  <!-- Roles Info -->
+  <div class="card" style="padding:18px;height:fit-content;">
+    <div style="font-size:12px;font-weight:700;color:var(--muted-fg);margin-bottom:12px;">صلاحيات الأدوار</div>
+
+    <div style="margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+        <span class="b b-grad">مدير</span>
+      </div>
+      <ul style="font-size:11px;color:var(--muted-fg);line-height:1.9;padding-right:14px;">
+        <li>كل الصلاحيات</li>
+        <li>التقارير والمصروفات</li>
+        <li>إدارة المستخدمين</li>
+        <li>النسخ الاحتياطي</li>
+        <li>الحذف والإلغاء</li>
+      </ul>
+    </div>
+
+    <div style="border-top:1px solid var(--border);padding-top:12px;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+        <span class="b b-muted">كاشير</span>
+      </div>
+      <ul style="font-size:11px;color:var(--muted-fg);line-height:1.9;padding-right:14px;">
+        <li>نقطة البيع</li>
+        <li>عرض المنتجات فقط</li>
+        <li>إضافة وعرض العملاء</li>
+        <li>بدون أسعار الشراء</li>
+        <li>بدون تقارير أو حذف</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function togglePw() {
+  const f = document.getElementById('pwField');
+  const i = document.getElementById('eyeIcon');
+  if (f.type === 'password') { f.type = 'text'; i.className = 'ti ti-eye-off'; }
+  else { f.type = 'password'; i.className = 'ti ti-eye'; }
+}
+</script>
+{% endblock %}

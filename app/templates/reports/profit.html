@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block title %}تقرير الأرباح — {{ APP_NAME }}{% endblock %}
+{% block topbar_title %}تقرير الأرباح{% endblock %}
+{% block topbar_crumb %}التقارير / الأرباح{% endblock %}
+
+{% block page_header %}
+<div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;">
+  <div>
+    <h1 style="font-family:'Calistoga',serif;font-size:22px;">تقرير الأرباح</h1>
+    <p style="font-size:12px;color:var(--muted-fg);margin-top:3px;">{{ date_from_str }} — {{ date_to_str }}</p>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <a href="{{ url_for('reports.sales_export_excel', date_from=date_from_str, date_to=date_to_str) }}"
+       class="btn btn-ghost"><i class="ti ti-file-spreadsheet"></i> Excel</a>
+    <button onclick="window.print()" class="btn btn-ghost"><i class="ti ti-printer"></i> طباعة</button>
+    <a href="{{ url_for('reports.index') }}" class="btn btn-ghost"><i class="ti ti-arrow-right"></i> رجوع</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<!-- Date Filter -->
+<div class="card" style="padding:14px 18px;margin-bottom:16px;">
+  <form method="GET" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+    <div>
+      <div class="fg-label">من تاريخ</div>
+      <input type="date" name="date_from" class="fg-input" style="width:160px;" value="{{ date_from_str }}"/>
+    </div>
+    <div>
+      <div class="fg-label">إلى تاريخ</div>
+      <input type="date" name="date_to" class="fg-input" style="width:160px;" value="{{ date_to_str }}"/>
+    </div>
+    <button type="submit" class="btn btn-primary"><i class="ti ti-filter"></i> عرض</button>
+    <div class="tabs" style="margin-bottom:0;">
+      <button type="button" class="tab" onclick="setRange('today')">اليوم</button>
+      <button type="button" class="tab" onclick="setRange('week')">أسبوع</button>
+      <button type="button" class="tab" onclick="setRange('month')">الشهر</button>
+      <button type="button" class="tab" onclick="setRange('year')">السنة</button>
+    </div>
+  </form>
+</div>
+
+<!-- Summary Stats -->
+<div style="display:grid;grid-template-columns:1.1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+  <div class="stat-hero" style="min-height:auto;padding:16px 20px;">
+    <div class="stat-hero-label">إجمالي المبيعات</div>
+    <div class="stat-hero-value" style="font-size:28px;">{{ "%.0f"|format(total_revenue) }} <span class="stat-hero-unit">{{ CURRENCY }}</span></div>
+    <div class="stat-hero-footer">{{ sale_count }} فاتورة</div>
+  </div>
+  <div class="stat-side">
+    <div class="stat-side-label">تكلفة البضاعة</div>
+    <div class="stat-side-value" style="color:var(--orange);">{{ "%.0f"|format(total_cogs) }}</div>
+    <div class="stat-side-footer">{{ ((total_cogs/total_revenue*100)|round(1)) if total_revenue else 0 }}% من الإيراد</div>
+  </div>
+  <div class="stat-side">
+    <div class="stat-side-label">الربح الإجمالي</div>
+    <div class="stat-side-value" style="{% if gross_profit>=0 %}color:var(--green){% else %}color:var(--red){% endif %}">{{ "%.0f"|format(gross_profit) }}</div>
+    <div class="stat-side-footer">هامش {{ ((gross_profit/total_revenue*100)|round(1)) if total_revenue else 0 }}%</div>
+  </div>
+  <div class="stat-side" style="{% if net_profit>=0 %}border-color:rgba(13,124,90,.25){% else %}border-color:rgba(192,57,43,.25){% endif %}">
+    <div class="stat-side-label">صافي الربح</div>
+    <div class="stat-side-value" style="{% if net_profit>=0 %}color:var(--green){% else %}color:var(--red){% endif %}">{{ "%.0f"|format(net_profit) }}</div>
+    <div class="stat-side-footer">بعد {{ "%.0f"|format(total_expenses) }} {{ CURRENCY }} مصروفات</div>
+  </div>
+</div>
+
+<!-- P&L Summary -->
+<div style="display:grid;grid-template-columns:380px 1fr;gap:14px;margin-bottom:16px;">
+  <div class="card" style="padding:20px;">
+    <div style="font-size:13px;font-weight:800;color:var(--fg);margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border);">ملخص الربح والخسارة</div>
+    <div style="display:flex;flex-direction:column;gap:0;">
+      <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;">
+        <span style="color:var(--muted-fg);">إجمالي المبيعات</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-weight:600;">{{ "%.2f"|format(total_revenue) }} {{ CURRENCY }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;">
+        <span style="color:var(--muted-fg);">( − ) تكلفة البضاعة المباعة</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--red);">{{ "%.2f"|format(total_cogs) }} {{ CURRENCY }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:2px solid var(--border);font-size:13px;font-weight:700;">
+        <span>الربح الإجمالي</span>
+        <span style="font-family:'JetBrains Mono',monospace;{% if gross_profit>=0 %}color:var(--green){% else %}color:var(--red){% endif %}">{{ "%.2f"|format(gross_profit) }} {{ CURRENCY }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;">
+        <span style="color:var(--muted-fg);">( − ) المصروفات</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--red);">{{ "%.2f"|format(total_expenses) }} {{ CURRENCY }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:12px 0;font-size:16px;font-weight:800;">
+        <span style="font-family:'Calistoga',serif;">صافي الربح</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:20px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;">{{ "%.2f"|format(net_profit) }} {{ CURRENCY }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Category Profit -->
+  <div class="card">
+    <div class="card-h">
+      <span class="card-title"><i class="ti ti-category"></i> ربح التصنيفات</span>
+    </div>
+    {% if cat_profit %}
+    <div class="tw">
+      <table>
+        <thead><tr><th>#</th><th>التصنيف</th><th>الإيراد</th><th>التكلفة</th><th>الربح</th><th>الهامش</th></tr></thead>
+        <tbody>
+          {% for c in cat_profit %}
+          {% set cp = (c.revenue or 0) - (c.cogs or 0) %}
+          {% set cm = (cp/(c.revenue)*100)|round(1) if c.revenue else 0 %}
+          <tr>
+            <td class="td-m" style="font-size:11px;">{{ loop.index }}</td>
+            <td><span class="b b-blue">{{ c.name }}</span></td>
+            <td class="td-n td-m">{{ "%.2f"|format(c.revenue or 0) }} {{ CURRENCY }}</td>
+            <td class="td-n td-m">{{ "%.2f"|format(c.cogs or 0) }} {{ CURRENCY }}</td>
+            <td class="td-n" style="{% if cp>=0 %}color:var(--green){% else %}color:var(--red){% endif %}font-weight:700;">{{ "%.2f"|format(cp) }} {{ CURRENCY }}</td>
+            <td>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <div style="width:60px;height:5px;background:var(--muted);border-radius:3px;overflow:hidden;">
+                  <div style="height:100%;background:{% if cm>=20 %}var(--green){% elif cm>=10 %}var(--orange){% else %}var(--red){% endif %};width:{{ [cm,100]|min }}%;border-radius:3px;"></div>
+                </div>
+                <span style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--muted-fg);">{{ cm }}%</span>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty" style="padding:28px;"><i class="ti ti-chart-off"></i><p>لا توجد بيانات</p></div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Product Profit -->
+<div class="card">
+  <div class="card-h">
+    <span class="card-title"><i class="ti ti-package"></i> ربح المنتجات (أعلى 20)</span>
+  </div>
+  {% if product_profit %}
+  <div class="tw">
+    <table>
+      <thead><tr><th>#</th><th>المنتج</th><th>الكمية</th><th>الإيراد</th><th>التكلفة</th><th>الربح</th></tr></thead>
+      <tbody>
+        {% for p in product_profit %}
+        {% set pp = (p.revenue or 0) - (p.cogs or 0) %}
+        <tr>
+          <td class="td-m" style="font-size:11px;">
+            {% if loop.index == 1 %}<span class="b b-grad">🥇</span>
+            {% elif loop.index == 2 %}<span class="b b-muted">🥈</span>
+            {% elif loop.index == 3 %}<span class="b" style="background:var(--orange-bg);color:var(--orange);">🥉</span>
+            {% else %}{{ loop.index }}{% endif %}
+          </td>
+          <td class="td-s" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;">{{ p.name }}</td>
+          <td class="td-n td-m">{{ "%.1f"|format(p.qty or 0) }}</td>
+          <td class="td-n td-m">{{ "%.2f"|format(p.revenue or 0) }} {{ CURRENCY }}</td>
+          <td class="td-n td-m">{{ "%.2f"|format(p.cogs or 0) }} {{ CURRENCY }}</td>
+          <td class="td-n" style="{% if pp>=0 %}color:var(--green){% else %}color:var(--red){% endif %}font-weight:700;">{{ "%.2f"|format(pp) }} {{ CURRENCY }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty"><i class="ti ti-package-off"></i><p>لا توجد مبيعات في هذه الفترة</p></div>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function setRange(range) {
+  const today = new Date();
+  let from, to = today.toISOString().split('T')[0];
+  if (range==='today') from=to;
+  else if (range==='week'){const d=new Date(today);d.setDate(d.getDate()-6);from=d.toISOString().split('T')[0];}
+  else if (range==='month') from=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-01';
+  else if (range==='year') from=today.getFullYear()+'-01-01';
+  document.querySelector('[name=date_from]').value=from;
+  document.querySelector('[name=date_to]').value=to;
+  document.querySelector('form').submit();
+}
+</script>
+{% endblock %}

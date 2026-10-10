@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}500 — خطأ في الخادم{% endblock %}
+{% block topbar_title %}خطأ 500{% endblock %}
+{% block topbar_crumb %}خطأ داخلي{% endblock %}
+
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:center;min-height:60vh;">
+  <div style="text-align:center;max-width:420px;">
+    <div style="font-family:'Calistoga',serif;font-size:96px;line-height:1;background:linear-gradient(135deg,#C0392B,#E74C3C);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:8px;">500</div>
+    <h2 style="font-family:'Calistoga',serif;font-size:22px;color:var(--fg);margin-bottom:10px;">خطأ في الخادم</h2>
+    <p style="font-size:14px;color:var(--muted-fg);margin-bottom:24px;line-height:1.7;">
+      حدث خطأ غير متوقع في الخادم.
+      يرجى المحاولة مرة أخرى أو التواصل مع المدير إذا استمر الخطأ.
+    </p>
+    <div style="display:flex;gap:10px;justify-content:center;">
+      <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary">
+        <i class="ti ti-home"></i> العودة للرئيسية
+      </a>
+      <button onclick="location.reload()" class="btn btn-ghost">
+        <i class="ti ti-refresh"></i> إعادة المحاولة
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+{% block title %}فاتورة شراء جديدة — {{ APP_NAME }}{% endblock %}
+{% block topbar_title %}فاتورة شراء جديدة{% endblock %}
+{% block topbar_crumb %}المشتريات / جديد{% endblock %}
+
+{% block page_header %}
+<div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;">
+  <div>
+    <h1 style="font-family:'Calistoga',serif;font-size:22px;">فاتورة شراء جديدة</h1>
+    <p style="font-size:12px;color:var(--muted-fg);margin-top:3px;">اختر المورد وأضف البنود</p>
+  </div>
+  <a href="{{ url_for('purchases.index') }}" class="btn btn-ghost">
+    <i class="ti ti-arrow-right"></i> رجوع
+  </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<form method="POST" action="{{ url_for('purchases.create') }}" id="purchaseForm">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+  <div style="display:grid;grid-template-columns:1fr 320px;gap:16px;">
+
+    <!-- LEFT: Items -->
+    <div>
+      <!-- Product Search -->
+      <div class="card" style="padding:18px;margin-bottom:14px;">
+        <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:12px;">إضافة منتج</div>
+        <div style="display:flex;align-items:center;gap:10px;background:var(--muted);border:2px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:10px;transition:border-color .15s;">
+          <i class="ti ti-search" style="color:var(--muted-fg);font-size:18px;flex-shrink:0;"></i>
+          <input type="text" id="prodSearch" placeholder="ابحث بالاسم أو الباركود..."
+                 autocomplete="off"
+                 style="border:none;outline:none;font-family:'Tajawal',sans-serif;font-size:14px;font-weight:500;color:var(--fg);background:none;width:100%;"
+                 onfocus="this.closest('div').style.borderColor='var(--acc)'"
+                 onblur="this.closest('div').style.borderColor='var(--border)'"/>
+        </div>
+        <div id="prodResults"></div>
+      </div>
+
+      <!-- Items Table -->
+      <div class="card">
+        <div class="card-h">
+          <span class="card-title"><i class="ti ti-list"></i> بنود الفاتورة</span>
+          <button type="button" onclick="clearItems()" class="btn btn-danger btn-sm">
+            <i class="ti ti-trash"></i> مسح الكل
+          </button>
+        </div>
+        <div class="tw">
+          <table>
+            <thead>
+              <tr>
+                <th>المنتج</th>
+                <th style="width:110px;">الكمية</th>
+                <th style="width:130px;">سعر الشراء</th>
+                <th style="width:100px;">الإجمالي</th>
+                <th style="width:40px;"></th>
+              </tr>
+            </thead>
+            <tbody id="itemsBody">
+              <tr id="emptyRow">
+                <td colspan="5" style="text-align:center;padding:32px;color:var(--muted-fg);">
+                  <i class="ti ti-package-off" style="font-size:28px;opacity:.2;display:block;margin-bottom:8px;"></i>
+                  ابحث وأضف منتجاً
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;align-items:center;gap:10px;">
+          <span style="font-size:13px;color:var(--muted-fg);">الإجمالي:</span>
+          <span id="grandTotal" style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;">0.00 {{ CURRENCY }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Info -->
+    <div class="card" style="padding:18px;height:fit-content;position:sticky;top:68px;">
+      <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border);">
+        معلومات الفاتورة
+      </div>
+
+      <div class="fg-wrap">
+        <label class="fg-label">المورد</label>
+        <select name="supplier_id" class="fg-input">
+          <option value="">— بدون مورد —</option>
+          {% for s in suppliers %}
+          <option value="{{ s.id }}">{{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="fg-wrap">
+        <label class="fg-label">تاريخ الفاتورة</label>
+        <input type="date" name="purchase_date" id="purchaseDateInput" class="fg-input"/>
+      </div>
+
+      <div class="fg-wrap">
+        <label class="fg-label">رقم فاتورة المورد</label>
+        <input type="text" name="supplier_invoice" class="fg-input" placeholder="اختياري"/>
+      </div>
+
+      <div class="fg-wrap">
+        <label class="fg-label">طريقة الدفع</label>
+        <select name="payment_method" id="payMethod" class="fg-input" onchange="togglePaid()">
+          <option value="cash">نقدي</option>
+          <option value="transfer">تحويل بنكي</option>
+          <option value="credit">آجل</option>
+        </select>
+      </div>
+
+      <div class="fg-wrap" id="paidSection">
+        <label class="fg-label">المبلغ المدفوع</label>
+        <div style="position:relative;">
+          <input type="number" name="paid" id="paidInput" class="fg-input"
+                 step="0.01" min="0" value="0"/>
+          <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted-fg);">{{ CURRENCY }}</span>
+        </div>
+      </div>
+
+      <div class="fg-wrap">
+        <label class="fg-label">ملاحظات</label>
+        <textarea name="notes" class="fg-input" rows="2" placeholder="اختياري..."></textarea>
+      </div>
+
+      <button type="submit" id="submitBtn" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;">
+        <i class="ti ti-device-floppy"></i> حفظ فاتورة الشراء
+      </button>
+    </div>
+
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CURRENCY = "{{ CURRENCY }}";
+let items = [];
+let searchTimeout = null;
+
+// Search
+document.getElementById('prodSearch').addEventListener('input', function() {
+  clearTimeout(searchTimeout);
+  const q = this.value.trim();
+  if (!q) { document.getElementById('prodResults').innerHTML = ''; return; }
+  searchTimeout = setTimeout(() => doSearch(q), 220);
+});
+
+async function doSearch(q) {
+  const res = await fetch(`/purchases/product-search?q=${encodeURIComponent(q)}`);
+  const products = await res.json();
+  const box = document.getElementById('prodResults');
+  if (!products.length) {
+    box.innerHTML = '<div style="font-size:12px;color:var(--muted-fg);padding:8px 0;">لا توجد نتائج</div>';
+    return;
+  }
+  box.innerHTML = '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;">' +
+    products.map(p => `
+      <div onclick='addItem(${JSON.stringify(p).replace(/'/g,"&#39;")})'
+           style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;"
+           onmouseover="this.style.background='rgba(0,82,255,.04)'" onmouseout="this.style.background=''">
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:700;color:var(--fg);">${p.name}</div>
+          <div style="font-size:11px;color:var(--muted-fg);">المخزون: ${p.quantity} ${p.unit}</div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--orange);">${p.purchase_price.toFixed(2)} ${CURRENCY}</div>
+      </div>
+    `).join('') + '</div>';
+}
+
+function addItem(p) {
+  const ex = items.find(i => i.id === p.id);
+  if (ex) { ex.qty++; ex.total = +(ex.qty * ex.price).toFixed(2); }
+  else items.push({ id: p.id, name: p.name, unit: p.unit, price: p.purchase_price, qty: 1, total: p.purchase_price });
+  document.getElementById('prodSearch').value = '';
+  document.getElementById('prodResults').innerHTML = '';
+  renderItems();
+}
+
+function removeItem(idx) { items.splice(idx, 1); renderItems(); }
+function clearItems() { if (items.length && !confirm('مسح جميع البنود؟')) return; items = []; renderItems(); }
+
+function updateQty(idx, v) {
+  items[idx].qty = Math.max(0.01, parseFloat(v) || 0.01);
+  items[idx].total = +(items[idx].qty * items[idx].price).toFixed(2);
+  renderItems();
+}
+function updatePrice(idx, v) {
+  items[idx].price = Math.max(0, parseFloat(v) || 0);
+  items[idx].total = +(items[idx].qty * items[idx].price).toFixed(2);
+  renderItems();
+}
+
+function renderItems() {
+  const tbody = document.getElementById('itemsBody');
+  if (!items.length) {
+    tbody.innerHTML = '<tr id="emptyRow"><td colspan="5" style="text-align:center;padding:32px;color:var(--muted-fg);"><i class="ti ti-package-off" style="font-size:28px;opacity:.2;display:block;margin-bottom:8px;"></i>ابحث وأضف منتجاً</td></tr>';
+    document.getElementById('grandTotal').textContent = '0.00 ' + CURRENCY;
+    return;
+  }
+  let total = 0;
+  let html = '';
+  items.forEach((item, idx) => {
+    total += item.total;
+    html += `<tr>
+      <td class="td-s">
+        ${item.name}
+        <input type="hidden" name="product_id[]" value="${item.id}"/>
+      </td>
+      <td>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <input type="number" name="quantity[]" value="${item.qty}" min="0.01" step="0.01"
+                 style="width:65px;border:1px solid var(--border);border-radius:6px;padding:5px 7px;font-size:12px;font-family:'JetBrains Mono',monospace;font-weight:700;text-align:center;outline:none;"
+                 onchange="updateQty(${idx},this.value)"
+                 onfocus="this.style.borderColor='var(--acc)'" onblur="this.style.borderColor='var(--border)'"/>
+          <span style="font-size:11px;color:var(--muted-fg);">${item.unit}</span>
+        </div>
+      </td>
+      <td>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <input type="number" name="unit_price[]" value="${item.price}" min="0" step="0.01"
+                 style="width:75px;border:1px solid var(--border);border-radius:6px;padding:5px 7px;font-size:12px;font-family:'JetBrains Mono',monospace;font-weight:700;text-align:center;outline:none;"
+                 onchange="updatePrice(${idx},this.value)"
+                 onfocus="this.style.borderColor='var(--acc)'" onblur="this.style.borderColor='var(--border)'"/>
+          <span style="font-size:11px;color:var(--muted-fg);">${CURRENCY}</span>
+        </div>
+      </td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--orange);">${item.total.toFixed(2)} ${CURRENCY}</td>
+      <td>
+        <button type="button" onclick="removeItem(${idx})"
+                style="background:none;border:none;color:var(--border);cursor:pointer;font-size:16px;transition:color .12s;"
+                onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--border)'">
+          <i class="ti ti-x"></i>
+        </button>
+      </td>
+    </tr>`;
+  });
+  tbody.innerHTML = html;
+  document.getElementById('grandTotal').textContent = total.toFixed(2) + ' ' + CURRENCY;
+}
+
+function togglePaid() {
+  const method = document.getElementById('payMethod').value;
+  const s = document.getElementById('paidSection');
+  s.style.display = method === 'credit' ? 'none' : 'block';
+  if (method === 'credit') document.getElementById('paidInput').value = '0';
+}
+
+document.getElementById('purchaseForm').addEventListener('submit', function(e) {
+  if (!items.length) { e.preventDefault(); alert('أضف منتجاً واحداً على الأقل.'); return; }
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;margin-left:6px;"></span> جاري الحفظ...';
+});
+
+document.getElementById('purchaseDateInput').value = new Date().toISOString().split('T')[0];
+
+const s = document.createElement('style');
+s.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+document.head.appendChild(s);
+</script>
+{% endblock %}

@@ -1,0 +1,363 @@
+{% extends "base.html" %}
+{% block title %}تفاصيل تغيير الزيت #{{ service.id }} — {{ APP_NAME }}{% endblock %}
+{% block topbar_title %}تغيير الزيت{% endblock %}
+{% block topbar_crumb %}تفاصيل العملية #{{ service.id }}{% endblock %}
+
+{% block head %}
+<style>
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);}
+.info-row:last-child{border-bottom:none;}
+.info-label{font-size:12px;color:var(--muted-fg);font-weight:600;}
+.info-value{font-size:13px;color:var(--fg);font-weight:700;text-align:left;}
+.info-value.mono{font-family:'JetBrains Mono',monospace;}
+.total-block{background:var(--fg);border-radius:12px;padding:18px;color:#fff;}
+.total-block-line{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px;}
+.total-block-line .lbl{color:rgba(255,255,255,.5);}
+.total-block-line .val{font-family:'JetBrains Mono',monospace;font-weight:600;color:#fff;}
+.total-block-line.grand{border-top:1px solid rgba(255,255,255,.12);padding-top:10px;margin-top:6px;}
+.total-block-line.grand .lbl{color:rgba(255,255,255,.7);font-size:14px;font-weight:700;}
+.total-block-line.grand .val{font-size:22px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.next-svc-card{
+  background:linear-gradient(135deg,rgba(0,82,255,.06),rgba(77,124,255,.04));
+  border:1px solid rgba(0,82,255,.2);border-radius:12px;padding:16px;
+}
+.next-svc-card.overdue{
+  background:rgba(192,57,43,.05);border-color:rgba(192,57,43,.25);
+}
+.next-svc-card.soon{
+  background:rgba(180,83,9,.05);border-color:rgba(180,83,9,.25);
+}
+@media print{
+  .no-print{display:none!important;}
+  .card{box-shadow:none!important;border:1px solid #ddd!important;}
+  body{background:#fff!important;}
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;" class="no-print">
+  <div>
+    <h1 style="font-family:'Calistoga',serif;font-size:26px;color:var(--fg);margin-bottom:3px;">
+      تغيير زيت #{{ service.id }}
+    </h1>
+    <p style="font-size:13px;color:var(--muted-fg);">
+      {{ service.service_date.strftime('%A، %d %B %Y') }}
+      {% if service.sale %}
+        — <a href="{{ url_for('sales.detail', sale_id=service.sale.id) }}"
+             style="color:var(--acc);text-decoration:none;font-weight:600;">
+          فاتورة {{ service.sale.invoice_number }}
+        </a>
+      {% endif %}
+    </p>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <button onclick="window.print()" class="btn btn-ghost">
+      <i class="ti ti-printer"></i> طباعة
+    </button>
+    <a href="{{ url_for('oil_service.index') }}" class="btn btn-ghost">
+      <i class="ti ti-arrow-right"></i> رجوع
+    </a>
+    {% if service.status == 'completed' and current_user.is_admin %}
+    <button onclick="openModal('cancelModal')" class="btn btn-danger">
+      <i class="ti ti-ban"></i> إلغاء العملية
+    </button>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Status Banner -->
+{% if service.status == 'cancelled' %}
+<div class="strip" style="background:var(--red-bg);border-color:rgba(192,57,43,.25);color:var(--red);margin-bottom:16px;">
+  <i class="ti ti-ban"></i>
+  <strong>هذه العملية ملغاة</strong> — تم إرجاع المخزون.
+</div>
+{% endif %}
+
+<div style="display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start;">
+
+  <!-- ── LEFT MAIN ── -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+
+    <!-- Customer & Vehicle -->
+    <div class="card">
+      <div class="card-h">
+        <span class="card-title"><i class="ti ti-user"></i> العميل والسيارة</span>
+      </div>
+      <div style="padding:18px;">
+        <div class="detail-grid">
+          <div>
+            <div class="section-label" style="font-size:11px;font-weight:700;color:var(--muted-fg);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em;">العميل</div>
+            <div class="info-row">
+              <span class="info-label">الاسم</span>
+              <span class="info-value">{{ service.customer.name }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">الجوال</span>
+              <span class="info-value mono">{{ service.customer.phone or '—' }}</span>
+            </div>
+          </div>
+          <div>
+            <div class="section-label" style="font-size:11px;font-weight:700;color:var(--muted-fg);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em;">السيارة</div>
+            <div class="info-row">
+              <span class="info-label">رقم اللوحة</span>
+              <a href="{{ url_for('oil_service.vehicle_history', vehicle_id=service.vehicle_id) }}"
+                 class="info-value" style="color:var(--acc);text-decoration:none;">
+                {{ service.vehicle.plate }}
+              </a>
+            </div>
+            <div class="info-row">
+              <span class="info-label">النوع والموديل</span>
+              <span class="info-value">
+                {% if service.vehicle.car_type %}{{ service.vehicle.car_type }}{% endif %}
+                {% if service.vehicle.car_model %} — {{ service.vehicle.car_model }}{% endif %}
+                {% if not service.vehicle.car_type and not service.vehicle.car_model %}—{% endif %}
+              </span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">قراءة العداد</span>
+              <span class="info-value mono">{{ "%.0f"|format(service.odometer) }} كم</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Items Table -->
+    <div class="card">
+      <div class="card-h">
+        <span class="card-title"><i class="ti ti-droplet-filled-2"></i> المنتجات المستخدمة</span>
+      </div>
+      <div class="tw">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>المنتج</th>
+              <th>الكمية</th>
+              <th>سعر الوحدة</th>
+              <th>الإجمالي</th>
+              <th>الربح</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% set items_list = service.items.all() %}
+            {% if items_list %}
+              {% for item in items_list %}
+              <tr>
+                <td class="td-n">{{ loop.index }}</td>
+                <td class="td-s">{{ item.product.name }}</td>
+                <td class="td-n">{{ item.quantity }} {{ item.product.unit }}</td>
+                <td class="td-n">{{ "%.2f"|format(item.unit_price) }} {{ CURRENCY }}</td>
+                <td class="td-n" style="font-weight:700;color:var(--fg);">{{ "%.2f"|format(item.total) }} {{ CURRENCY }}</td>
+                <td class="td-n" style="color:var(--green);">{{ "%.2f"|format(item.profit) }} {{ CURRENCY }}</td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr>
+                <td colspan="6">
+                  <div class="empty"><i class="ti ti-droplet"></i><p>لا توجد منتجات</p></div>
+                </td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if service.labor_cost > 0 %}
+      <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--muted);">
+        <span style="font-size:13px;font-weight:600;color:var(--muted-fg);">
+          <i class="ti ti-tool"></i> أجرة العمالة
+        </span>
+        <span class="td-n" style="font-size:14px;font-weight:700;color:var(--fg);">{{ "%.2f"|format(service.labor_cost) }} {{ CURRENCY }}</span>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Notes -->
+    {% if service.notes %}
+    <div class="card">
+      <div class="card-h">
+        <span class="card-title"><i class="ti ti-notes"></i> ملاحظات</span>
+      </div>
+      <div style="padding:16px 18px;font-size:13px;color:var(--muted-fg);line-height:1.8;">
+        {{ service.notes }}
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- ── RIGHT SIDEBAR ── -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+
+    <!-- Totals -->
+    <div class="card">
+      <div class="card-h">
+        <span class="card-title"><i class="ti ti-receipt"></i> الفاتورة</span>
+        {% if service.status == 'completed' %}
+          <span class="b b-green"><i class="ti ti-check"></i> مكتملة</span>
+        {% else %}
+          <span class="b b-red"><i class="ti ti-ban"></i> ملغاة</span>
+        {% endif %}
+      </div>
+      <div style="padding:18px;">
+        <div class="total-block">
+          <div class="total-block-line">
+            <span class="lbl">المنتجات</span>
+            <span class="val">{{ "%.2f"|format(service.parts_total) }} {{ CURRENCY }}</span>
+          </div>
+          <div class="total-block-line">
+            <span class="lbl">أجرة العمالة</span>
+            <span class="val">{{ "%.2f"|format(service.labor_cost) }} {{ CURRENCY }}</span>
+          </div>
+          <div class="total-block-line">
+            <span class="lbl">المجموع</span>
+            <span class="val">{{ "%.2f"|format(service.subtotal) }} {{ CURRENCY }}</span>
+          </div>
+          {% if service.discount_amount > 0 %}
+          <div class="total-block-line">
+            <span class="lbl">
+              خصم
+              {% if service.discount_type == 'percent' %}({{ service.discount }}%){% endif %}
+            </span>
+            <span class="val" style="color:#F87171;">- {{ "%.2f"|format(service.discount_amount) }} {{ CURRENCY }}</span>
+          </div>
+          {% endif %}
+          <div class="total-block-line grand">
+            <span class="lbl">الإجمالي</span>
+            <span class="val">{{ "%.2f"|format(service.total) }} {{ CURRENCY }}</span>
+          </div>
+        </div>
+
+        <div style="margin-top:14px;display:flex;flex-direction:column;gap:8px;">
+          <div class="info-row" style="padding:7px 0;">
+            <span class="info-label">طريقة الدفع</span>
+            <span>
+              {% if service.payment_method == 'cash' %}
+                <span class="b b-green">💵 نقدي</span>
+              {% elif service.payment_method == 'credit' %}
+                <span class="b b-orange">📋 آجل</span>
+              {% else %}
+                <span class="b b-blue">🏦 تحويل</span>
+              {% endif %}
+            </span>
+          </div>
+          <div class="info-row" style="padding:7px 0;">
+            <span class="info-label">الفني / المستخدم</span>
+            <span class="info-value">{{ service.technician.full_name if service.technician else '—' }}</span>
+          </div>
+          <div class="info-row" style="padding:7px 0;">
+            <span class="info-label">وقت التسجيل</span>
+            <span class="info-value mono" style="font-size:11px;">{{ service.created_at.strftime('%Y/%m/%d %H:%M') }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Next Service -->
+    <div class="card">
+      <div class="card-h">
+        <span class="card-title"><i class="ti ti-calendar-event"></i> التغيير القادم</span>
+      </div>
+      <div style="padding:18px;">
+        {% if service.next_odometer or service.next_date %}
+        <div class="next-svc-card {% if service.is_overdue %}overdue{% elif service.days_until_next is not none and service.days_until_next <= 14 %}soon{% endif %}">
+          {% if service.next_odometer %}
+          <div style="margin-bottom:10px;">
+            <div style="font-size:11px;color:var(--muted-fg);margin-bottom:3px;">العداد القادم</div>
+            <div style="font-family:'Calistoga',serif;font-size:22px;color:var(--acc);">
+              {{ "%.0f"|format(service.next_odometer) }}
+              <span style="font-size:13px;font-family:'Tajawal',sans-serif;color:var(--muted-fg);">كم</span>
+            </div>
+            <div style="font-size:11px;color:var(--muted-fg);margin-top:2px;">
+              بعد {{ "%.0f"|format(service.next_km_interval) }} كم
+            </div>
+          </div>
+          {% endif %}
+          {% if service.next_date %}
+          <div style="border-top:1px solid rgba(0,82,255,.15);padding-top:10px;margin-top:10px;">
+            <div style="font-size:11px;color:var(--muted-fg);margin-bottom:3px;">التاريخ القادم</div>
+            <div style="font-size:15px;font-weight:700;color:var(--fg);">
+              {{ service.next_date.strftime('%Y/%m/%d') }}
+            </div>
+            {% if service.days_until_next is not none %}
+            <div style="margin-top:5px;">
+              {% if service.is_overdue %}
+                <span class="b b-red"><i class="ti ti-alert-triangle"></i> متأخر {{ service.days_until_next|abs }} يوم</span>
+              {% elif service.days_until_next <= 14 %}
+                <span class="b b-orange"><i class="ti ti-clock"></i> بعد {{ service.days_until_next }} يوم</span>
+              {% else %}
+                <span class="b b-blue"><i class="ti ti-clock"></i> بعد {{ service.days_until_next }} يوم</span>
+              {% endif %}
+            </div>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+        {% else %}
+        <div class="empty" style="padding:20px;">
+          <i class="ti ti-calendar-off"></i>
+          <p>لم يُحدَّد موعد التغيير القادم</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="card no-print">
+      <div class="card-h">
+        <span class="card-title"><i class="ti ti-bolt"></i> إجراءات سريعة</span>
+      </div>
+      <div style="padding:14px;display:flex;flex-direction:column;gap:8px;">
+        <a href="{{ url_for('oil_service.vehicle_history', vehicle_id=service.vehicle_id) }}"
+           class="btn btn-secondary" style="justify-content:center;">
+          <i class="ti ti-history"></i> سجل السيارة
+        </a>
+        <a href="{{ url_for('customers.detail', customer_id=service.customer_id) }}"
+           class="btn btn-secondary" style="justify-content:center;">
+          <i class="ti ti-user"></i> ملف العميل
+        </a>
+        {% if service.sale %}
+        <a href="{{ url_for('sales.detail', sale_id=service.sale.id) }}"
+           class="btn btn-secondary" style="justify-content:center;">
+          <i class="ti ti-file-invoice"></i> عرض الفاتورة
+        </a>
+        {% endif %}
+        <a href="{{ url_for('oil_service.create') }}"
+           class="btn btn-primary" style="justify-content:center;">
+          <i class="ti ti-plus"></i> تغيير زيت جديد
+        </a>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Cancel Modal -->
+{% if service.status == 'completed' and current_user.is_admin %}
+<div class="modal-overlay" id="cancelModal">
+  <div class="modal-box">
+    <div class="modal-title">إلغاء عملية تغيير الزيت</div>
+    <div class="modal-desc">
+      هل أنت متأكد من إلغاء هذه العملية؟ سيتم:
+      <ul style="margin-top:8px;padding-right:18px;font-size:13px;color:var(--muted-fg);line-height:2;">
+        <li>إرجاع الكميات إلى المخزون</li>
+        <li>إلغاء الفاتورة المرتبطة</li>
+        <li>لا يمكن التراجع عن هذه العملية</li>
+      </ul>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('cancelModal')">تراجع</button>
+      <form method="POST" action="{{ url_for('oil_service.cancel', service_id=service.id) }}" style="display:inline;">
+        <button type="submit" class="btn btn-danger">
+          <i class="ti ti-ban"></i> تأكيد الإلغاء
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

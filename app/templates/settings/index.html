@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}الإعدادات — {{ APP_NAME }}{% endblock %}
+{% block topbar_title %}الإعدادات{% endblock %}
+{% block topbar_crumb %}النظام / الإعدادات{% endblock %}
+
+{% block page_header %}
+<div style="padding:20px 24px 0;">
+  <h1 style="font-family:'Calistoga',serif;font-size:22px;">إعدادات المحل</h1>
+  <p style="font-size:12px;color:var(--muted-fg);margin-top:3px;">تخصيص بيانات المحل والنظام</p>
+</div>
+{% endblock %}
+
+{% block content %}
+<form method="POST" action="{{ url_for('settings.index') }}" enctype="multipart/form-data">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+  <div style="display:grid;grid-template-columns:1fr 300px;gap:16px;">
+
+    <!-- Main Settings -->
+    <div>
+      <!-- Shop Info -->
+      <div class="card" style="padding:22px;margin-bottom:14px;">
+        <div style="font-size:13px;font-weight:800;color:var(--fg);margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;">
+          <i class="ti ti-building-store" style="color:var(--acc);"></i> بيانات المحل
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="fg-wrap">
+            <label class="fg-label">اسم المحل (عربي) <span style="color:var(--red)">*</span></label>
+            <input name="shop_name" class="fg-input" value="{{ settings.shop_name }}" required/>
+          </div>
+          <div class="fg-wrap">
+            <label class="fg-label">اسم المحل (إنجليزي)</label>
+            <input name="shop_name_en" class="fg-input" value="{{ settings.shop_name_en }}"/>
+          </div>
+          <div class="fg-wrap">
+            <label class="fg-label">رقم الهاتف</label>
+            <div style="position:relative;">
+              <i class="ti ti-phone" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted-fg);font-size:15px;"></i>
+              <input name="shop_phone" class="fg-input" style="padding-right:34px;" value="{{ settings.shop_phone }}" placeholder="05xxxxxxxx"/>
+            </div>
+          </div>
+          <div class="fg-wrap">
+            <label class="fg-label">البريد الإلكتروني</label>
+            <div style="position:relative;">
+              <i class="ti ti-mail" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted-fg);font-size:15px;"></i>
+              <input type="email" name="shop_email" class="fg-input" style="padding-right:34px;" value="{{ settings.shop_email }}"/>
+            </div>
+          </div>
+          <div class="fg-wrap" style="grid-column:span 2;">
+            <label class="fg-label">العنوان</label>
+            <input name="shop_address" class="fg-input" value="{{ settings.shop_address }}" placeholder="المدينة، الحي، الشارع"/>
+          </div>
+        </div>
+      </div>
+
+      <!-- Invoice Settings -->
+      <div class="card" style="padding:22px;margin-bottom:14px;">
+        <div style="font-size:13px;font-weight:800;color:var(--fg);margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;">
+          <i class="ti ti-receipt" style="color:var(--acc);"></i> إعدادات الفاتورة
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+          <div class="fg-wrap">
+            <label class="fg-label">العملة</label>
+            <input name="currency" class="fg-input" value="{{ settings.currency }}" placeholder="ر.س"/>
+          </div>
+          <div class="fg-wrap">
+            <label class="fg-label">رقم ضريبة القيمة المضافة</label>
+            <input name="vat_number" class="fg-input" value="{{ settings.vat_number }}"/>
+          </div>
+          <div class="fg-wrap">
+            <label class="fg-label">نسبة الضريبة %</label>
+            <div style="position:relative;">
+              <input type="number" name="vat_rate" class="fg-input" style="padding-left:30px;"
+                     value="{{ settings.vat_rate }}" min="0" max="100" step="0.1"/>
+              <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted-fg);">%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="fg-wrap">
+          <label class="fg-label">نص أسفل الفاتورة</label>
+          <textarea name="invoice_footer" class="fg-input" rows="2"
+                    placeholder="شكراً لتعاملكم معنا">{{ settings.invoice_footer }}</textarea>
+        </div>
+      </div>
+
+      <!-- System Settings -->
+      <div class="card" style="padding:22px;margin-bottom:14px;">
+        <div style="font-size:13px;font-weight:800;color:var(--fg);margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;">
+          <i class="ti ti-adjustments" style="color:var(--acc);"></i> إعدادات النظام
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+          <div class="fg-wrap">
+            <label class="fg-label">حد تنبيه المخزون الافتراضي</label>
+            <input type="number" name="low_stock_default" class="fg-input"
+                   value="{{ settings.low_stock_default }}" min="1"/>
+          </div>
+          <div class="fg-wrap">
+            <label class="fg-label">أقصى محاولات دخول</label>
+            <input type="number" name="login_max_attempts" class="fg-input"
+                   value="{{ settings.login_max_attempts }}" min="3" max="20"/>
+          </div>
+          <div class="fg-wrap">
+            <label class="fg-label">مدة القفل (دقائق)</label>
+            <input type="number" name="login_lockout_minutes" class="fg-input"
+                   value="{{ settings.login_lockout_minutes }}" min="5" max="60"/>
+          </div>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="padding:12px 28px;font-size:14px;">
+        <i class="ti ti-device-floppy"></i> حفظ جميع الإعدادات
+      </button>
+    </div>
+
+    <!-- Side: Logo + Links -->
+    <div>
+      <!-- Quick Links -->
+      <div class="card" style="padding:18px;">
+        <div style="font-size:12px;font-weight:700;color:var(--muted-fg);margin-bottom:12px;">إدارة النظام</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <a href="{{ url_for('settings.users') }}" class="btn btn-ghost" style="justify-content:flex-start;">
+            <i class="ti ti-users"></i> إدارة المستخدمين
+          </a>
+
+          <a href="{{ url_for('inventory.index') }}" class="btn btn-ghost" style="justify-content:flex-start;">
+            <i class="ti ti-clipboard-list"></i> جرد المخزون
+          </a>
+          <a href="{{ url_for('audit.index') }}" class="btn btn-ghost" style="justify-content:flex-start;">
+            <i class="ti ti-history"></i> سجل العمليات
+          </a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</form>
+{% endblock %}

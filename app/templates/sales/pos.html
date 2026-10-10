@@ -1,0 +1,346 @@
+{% extends "base.html" %}
+{% block title %}نقطة البيع — {{ APP_NAME }}{% endblock %}
+{% block topbar_title %}نقطة البيع{% endblock %}
+{% block topbar_crumb %}المبيعات / فاتورة جديدة{% endblock %}
+
+{% block page_header %}
+<div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;">
+  <div>
+    <h1 style="font-family:'Calistoga',serif;font-size:22px;">نقطة البيع</h1>
+    <p style="font-size:12px;color:var(--muted-fg);margin-top:3px;">ابحث عن منتج أو امسح الباركود للإضافة الفورية</p>
+  </div>
+  <a href="{{ url_for('sales.index') }}" class="btn btn-ghost">
+    <i class="ti ti-list"></i> سجل المبيعات
+  </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start;">
+
+  <!-- LEFT: Search + Products -->
+  <div>
+    <!-- Search Bar -->
+    <div style="display:flex;align-items:center;gap:10px;background:var(--card);border:2px solid var(--acc);border-radius:10px;padding:10px 14px;margin-bottom:12px;box-shadow:var(--sh-acc);">
+      <i class="ti ti-scan" style="color:var(--acc);font-size:20px;flex-shrink:0;"></i>
+      <input type="text" id="searchInput" placeholder="ابحث بالاسم أو امسح الباركود..."
+             autocomplete="off"
+             style="border:none;outline:none;font-family:'Tajawal',sans-serif;font-size:15px;font-weight:600;color:var(--fg);background:none;width:100%;"/>
+    </div>
+
+    <!-- Search Results -->
+    <div id="searchResults" style="margin-bottom:12px;"></div>
+
+    <!-- Customer + Notes -->
+    <div class="card" style="padding:18px;">
+      <div style="font-size:12px;font-weight:700;color:var(--muted-fg);margin-bottom:12px;">معلومات إضافية</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <label class="fg-label">العميل (اختياري)</label>
+          <select id="customerSelect" class="fg-input">
+            <option value="">— عميل نقدي —</option>
+            {% for c in customers %}
+            <option value="{{ c.id }}">{{ c.name }}{% if c.car_plate %} ({{ c.car_plate }}){% endif %}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="fg-label">ملاحظات</label>
+          <input type="text" id="notesInput" class="fg-input" placeholder="اختياري..."/>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Cart -->
+  <div class="card" style="position:sticky;top:68px;">
+    <div style="padding:12px 16px;background:var(--fg);display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#fff;">
+      <i class="ti ti-receipt" style="opacity:.6;"></i>
+      الفاتورة الحالية
+      <button onclick="clearCart()" style="margin-right:auto;background:none;border:none;color:rgba(255,255,255,.4);cursor:pointer;font-size:12px;font-family:'Tajawal',sans-serif;transition:color .12s;" onmouseover="this.style.color='#F87171'" onmouseout="this.style.color='rgba(255,255,255,.4)'">
+        <i class="ti ti-trash" style="font-size:14px;"></i> مسح
+      </button>
+    </div>
+
+    <!-- Cart Items -->
+    <div id="cartBody" style="min-height:200px;max-height:320px;overflow-y:auto;">
+      <div id="cartEmpty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;color:var(--muted-fg);text-align:center;">
+        <i class="ti ti-shopping-cart-off" style="font-size:32px;opacity:.2;margin-bottom:8px;"></i>
+        <p style="font-size:12px;">لم تُضف أي منتج بعد</p>
+      </div>
+    </div>
+
+    <!-- Discount + Payment -->
+    <div style="padding:14px 16px;border-top:1px solid var(--border);background:var(--muted);">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+        <div>
+          <label class="fg-label">الخصم</label>
+          <div style="display:flex;gap:4px;">
+            <input type="number" id="discountVal" class="fg-input" style="padding:7px 10px;"
+                   value="0" min="0" step="0.01" oninput="calcTotals()"/>
+            <select id="discountType" class="fg-input" style="width:80px;padding:7px 6px;" onchange="calcTotals()">
+              <option value="amount">{{ CURRENCY }}</option>
+              <option value="percent">%</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="fg-label">طريقة الدفع</label>
+          <select id="paymentMethod" class="fg-input" style="padding:7px 10px;" onchange="togglePaid()">
+            <option value="cash">نقدي</option>
+            <option value="transfer">تحويل بنكي</option>
+            <option value="credit">آجل</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Totals -->
+      <div style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted-fg);margin-bottom:4px;">
+          <span>المجموع</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--fg);" id="subtotalDisplay">0.00 {{ CURRENCY }}</span>
+        </div>
+        <div id="discountRow" style="display:none;justify-content:space-between;font-size:12px;margin-bottom:4px;">
+          <span style="color:var(--red);">الخصم</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--red);" id="discountDisplay">— 0.00</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;border-top:2px solid var(--border);padding-top:8px;margin-top:4px;">
+          <span style="font-size:15px;font-weight:800;color:var(--fg);">الإجمالي</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;" id="totalDisplay">0.00</span>
+        </div>
+      </div>
+
+      <!-- Paid / Change -->
+      <div id="paidSection" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+        <div>
+          <label class="fg-label">المدفوع</label>
+          <input type="number" id="paidInput" class="fg-input" style="padding:7px 10px;"
+                 value="0" min="0" step="0.01" oninput="calcChange()"/>
+        </div>
+        <div>
+          <label class="fg-label">الباقي</label>
+          <div id="changeDisplay" class="fg-input" style="padding:7px 10px;background:var(--green-bg);color:var(--green);font-family:'JetBrains Mono',monospace;font-weight:700;">0.00</div>
+        </div>
+      </div>
+
+      <button id="saveSaleBtn" onclick="saveSale()" class="btn btn-primary" style="width:100%;justify-content:center;padding:13px;font-size:14px;">
+        <i class="ti ti-check"></i> تأكيد وحفظ الفاتورة
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Success Modal -->
+<div class="modal-overlay" id="successModal">
+  <div class="modal-box" style="text-align:center;">
+    <div style="width:56px;height:56px;border-radius:50%;background:var(--green-bg);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">
+      <i class="ti ti-circle-check" style="font-size:28px;color:var(--green);"></i>
+    </div>
+    <div class="modal-title" style="text-align:center;">تم حفظ الفاتورة</div>
+    <div class="modal-desc" id="successInvoiceNum" style="text-align:center;margin-bottom:20px;"></div>
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+      <a id="printBtn" href="#" class="btn btn-primary"><i class="ti ti-printer"></i> طباعة</a>
+      <a id="pdfBtn" href="#" class="btn btn-ghost"><i class="ti ti-file-type-pdf"></i> PDF</a>
+      <button class="btn btn-ghost" onclick="newSale()"><i class="ti ti-plus"></i> فاتورة جديدة</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CURRENCY = "{{ CURRENCY }}";
+let cart = [];
+let searchTimeout = null;
+
+// ── Search ─────────────────────────────────────────────────
+document.getElementById('searchInput').addEventListener('input', function() {
+  clearTimeout(searchTimeout);
+  const q = this.value.trim();
+  if (!q) { document.getElementById('searchResults').innerHTML = ''; return; }
+  searchTimeout = setTimeout(() => doSearch(q), 220);
+});
+
+document.getElementById('searchInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') { clearTimeout(searchTimeout); doSearch(this.value.trim(), true); }
+});
+
+async function doSearch(q, autoAdd = false) {
+  if (!q) return;
+  const res = await fetch(`/products/search-ajax?q=${encodeURIComponent(q)}`);
+  const products = await res.json();
+  const box = document.getElementById('searchResults');
+  if (!products.length) {
+    box.innerHTML = '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;font-size:13px;color:var(--muted-fg);">لا توجد نتائج للبحث</div>';
+    return;
+  }
+  if (autoAdd && products.length === 1) {
+    addToCart(products[0]);
+    document.getElementById('searchInput').value = '';
+    box.innerHTML = '';
+    return;
+  }
+  box.innerHTML = `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;">` +
+    products.map(p => `
+      <div onclick='addToCart(${JSON.stringify(p).replace(/'/g,"&#39;")})'
+           style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;"
+           onmouseover="this.style.background='rgba(0,82,255,.04)'" onmouseout="this.style.background=''">
+        <div style="width:36px;height:36px;border-radius:8px;background:var(--grad);display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;flex-shrink:0;">
+          <i class="ti ti-package"></i>
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:700;color:var(--fg);">${p.name}</div>
+          <div style="font-size:11px;color:var(--muted-fg);">${p.barcode || ''}</div>
+        </div>
+        <div style="text-align:left;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;">${p.sale_price.toFixed(2)} ${CURRENCY}</div>
+          <div style="font-size:11px;${p.quantity > 5 ? 'color:var(--green)' : 'color:var(--orange)'};">${p.quantity} ${p.unit}</div>
+        </div>
+      </div>
+    `).join('') + '</div>';
+}
+
+// ── Cart ───────────────────────────────────────────────────
+function addToCart(product) {
+  const ex = cart.find(i => i.product_id === product.id);
+  if (ex) {
+    if (ex.qty + 1 > product.quantity) { alert(`⚠️ الكمية المتوفرة: ${product.quantity} ${product.unit}`); return; }
+    ex.qty++;
+    ex.total = +(ex.qty * ex.unit_price).toFixed(2);
+  } else {
+    if (product.quantity <= 0) { alert(`⚠️ المنتج "${product.name}" غير متوفر.`); return; }
+    cart.push({ product_id: product.id, name: product.name, unit: product.unit, unit_price: product.sale_price, purchase_price: product.purchase_price, max_qty: product.quantity, qty: 1, total: product.sale_price });
+  }
+  document.getElementById('searchInput').value = '';
+  document.getElementById('searchResults').innerHTML = '';
+  renderCart();
+}
+
+function removeFromCart(idx) { cart.splice(idx, 1); renderCart(); }
+function clearCart() { if (cart.length && !confirm('مسح جميع البنود؟')) return; cart = []; renderCart(); }
+
+function updateQty(idx, val) {
+  const qty = parseFloat(val);
+  if (isNaN(qty) || qty <= 0) cart[idx].qty = 1;
+  else if (qty > cart[idx].max_qty) { alert(`الكمية المتوفرة: ${cart[idx].max_qty} ${cart[idx].unit}`); cart[idx].qty = cart[idx].max_qty; }
+  else cart[idx].qty = qty;
+  cart[idx].total = +(cart[idx].qty * cart[idx].unit_price).toFixed(2);
+  renderCart();
+}
+
+function renderCart() {
+  const body = document.getElementById('cartBody');
+  if (!cart.length) {
+    body.innerHTML = '<div id="cartEmpty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;color:var(--muted-fg);text-align:center;"><i class="ti ti-shopping-cart-off" style="font-size:32px;opacity:.2;margin-bottom:8px;"></i><p style="font-size:12px;">لم تُضف أي منتج بعد</p></div>';
+    calcTotals(); return;
+  }
+  body.innerHTML = cart.map((item, idx) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);">
+      <div style="flex:1;">
+        <div style="font-size:12px;font-weight:700;color:var(--fg);">${item.name}</div>
+        <div style="font-size:10px;color:var(--muted-fg);">${item.unit_price.toFixed(2)} ${CURRENCY} / ${item.unit}</div>
+      </div>
+      <input type="number" value="${item.qty}" min="0.01" step="0.01"
+             style="width:52px;border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:12px;text-align:center;font-family:'JetBrains Mono',monospace;font-weight:700;outline:none;"
+             onchange="updateQty(${idx},this.value)"
+             onfocus="this.style.borderColor='var(--acc)'" onblur="this.style.borderColor='var(--border)'"/>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--fg);min-width:55px;text-align:left;">${item.total.toFixed(2)}</div>
+      <button onclick="removeFromCart(${idx})" style="background:none;border:none;color:var(--border);cursor:pointer;padding:2px;font-size:15px;transition:color .12s;" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--border)'">
+        <i class="ti ti-x"></i>
+      </button>
+    </div>
+  `).join('');
+  calcTotals();
+}
+
+// ── Totals ─────────────────────────────────────────────────
+function calcTotals() {
+  const subtotal = cart.reduce((s, i) => s + i.total, 0);
+  const discVal = parseFloat(document.getElementById('discountVal').value) || 0;
+  const discType = document.getElementById('discountType').value;
+  let discAmount = discType === 'percent' ? subtotal * discVal / 100 : discVal;
+  discAmount = Math.min(discAmount, subtotal);
+  const total = Math.max(subtotal - discAmount, 0);
+  document.getElementById('subtotalDisplay').textContent = subtotal.toFixed(2) + ' ' + CURRENCY;
+  document.getElementById('totalDisplay').textContent = total.toFixed(2);
+  const dr = document.getElementById('discountRow');
+  if (discAmount > 0) { dr.style.display = 'flex'; document.getElementById('discountDisplay').textContent = '— ' + discAmount.toFixed(2); }
+  else dr.style.display = 'none';
+  calcChange();
+}
+
+function calcChange() {
+  const total = parseFloat(document.getElementById('totalDisplay').textContent) || 0;
+  const paid = parseFloat(document.getElementById('paidInput').value) || 0;
+  const change = Math.max(paid - total, 0);
+  const el = document.getElementById('changeDisplay');
+  el.textContent = change.toFixed(2);
+  el.style.background = change >= 0 ? 'var(--green-bg)' : 'var(--red-bg)';
+  el.style.color = change >= 0 ? 'var(--green)' : 'var(--red)';
+}
+
+function togglePaid() {
+  const method = document.getElementById('paymentMethod').value;
+  document.getElementById('paidSection').style.display = method === 'credit' ? 'none' : 'grid';
+}
+
+// ── Save ───────────────────────────────────────────────────
+async function saveSale() {
+  if (!cart.length) { alert('أضف منتجاً واحداً على الأقل.'); return; }
+  const btn = document.getElementById('saveSaleBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;margin-left:6px;"></span> جاري الحفظ...';
+
+  const subtotal = cart.reduce((s, i) => s + i.total, 0);
+  const discVal = parseFloat(document.getElementById('discountVal').value) || 0;
+  const discType = document.getElementById('discountType').value;
+  const discAmount = discType === 'percent' ? subtotal * discVal / 100 : discVal;
+  const total = Math.max(subtotal - discAmount, 0);
+  const paymentMethod = document.getElementById('paymentMethod').value;
+  const paid = paymentMethod === 'credit' ? 0 : (parseFloat(document.getElementById('paidInput').value) || 0);
+
+  try {
+    const res = await fetch('/sales/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}' },
+      body: JSON.stringify({
+        items: cart.map(i => ({ product_id: i.product_id, qty: i.qty, unit_price: i.unit_price })),
+        customer_id: document.getElementById('customerSelect').value || null,
+        discount: discVal, discount_type: discType,
+        payment_method: paymentMethod, paid, notes: document.getElementById('notesInput').value,
+      }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      document.getElementById('successInvoiceNum').textContent = 'رقم الفاتورة: ' + data.invoice_number;
+      document.getElementById('printBtn').href = `/sales/${data.sale_id}/print`;
+      document.getElementById('pdfBtn').href = `/sales/${data.sale_id}/pdf`;
+      openModal('successModal');
+    } else alert('❌ ' + data.msg);
+  } catch(e) { alert('حدث خطأ في الاتصال.'); }
+  finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-check"></i> تأكيد وحفظ الفاتورة';
+  }
+}
+
+function newSale() {
+  cart = [];
+  renderCart();
+  document.getElementById('customerSelect').value = '';
+  document.getElementById('discountVal').value = '0';
+  document.getElementById('paidInput').value = '0';
+  document.getElementById('notesInput').value = '';
+  closeModal('successModal');
+  document.getElementById('searchInput').focus();
+}
+
+// Spin animation
+const style = document.createElement('style');
+style.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+document.head.appendChild(style);
+
+calcTotals();
+</script>
+{% endblock %}

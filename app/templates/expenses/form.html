@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}{% if expense %}تعديل مصروف{% else %}مصروف جديد{% endif %} — {{ APP_NAME }}{% endblock %}
+{% block topbar_title %}{% if expense %}تعديل مصروف{% else %}تسجيل مصروف{% endif %}{% endblock %}
+{% block topbar_crumb %}المصروفات{% endblock %}
+
+{% block page_header %}
+<div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;">
+  <div>
+    <h1 style="font-family:'Calistoga',serif;font-size:22px;">
+      {% if expense %}تعديل: {{ expense.title }}{% else %}تسجيل مصروف جديد{% endif %}
+    </h1>
+    <p style="font-size:12px;color:var(--muted-fg);margin-top:3px;">أدخل تفاصيل المصروف</p>
+  </div>
+  <a href="{{ url_for('expenses.index') }}" class="btn btn-ghost">
+    <i class="ti ti-arrow-right"></i> رجوع
+  </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="display:grid;grid-template-columns:1fr 300px;gap:16px;max-width:860px;">
+
+  <div class="card" style="padding:22px;">
+    <form method="POST"
+          action="{% if expense %}{{ url_for('expenses.edit', expense_id=expense.id) }}{% else %}{{ url_for('expenses.create') }}{% endif %}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+      <div class="fg-wrap">
+        <label class="fg-label">عنوان المصروف <span style="color:var(--red)">*</span></label>
+        <input name="title" class="fg-input"
+               placeholder="مثال: إيجار المحل — يناير 2024"
+               value="{{ expense.title if expense else '' }}"
+               required autofocus/>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="fg-wrap">
+          <label class="fg-label">الفئة <span style="color:var(--red)">*</span></label>
+          <select name="category" class="fg-input">
+            {% for key, label in categories.items() %}
+            <option value="{{ key }}"
+              {% if expense and expense.category==key %}selected
+              {% elif not expense and key=='other' %}selected{% endif %}>
+              {{ label }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="fg-wrap">
+          <label class="fg-label">المبلغ <span style="color:var(--red)">*</span></label>
+          <div style="position:relative;">
+            <input type="number" name="amount" class="fg-input"
+                   step="0.01" min="0.01" placeholder="0.00"
+                   value="{{ expense.amount if expense else '' }}" required/>
+            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted-fg);">{{ CURRENCY }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="fg-wrap">
+          <label class="fg-label">طريقة الدفع</label>
+          <select name="payment_method" class="fg-input">
+            {% for key, label in payment_methods.items() %}
+            <option value="{{ key }}"
+              {% if expense and expense.payment_method==key %}selected
+              {% elif not expense and key=='cash' %}selected{% endif %}>
+              {{ label }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="fg-wrap">
+          <label class="fg-label">التاريخ <span style="color:var(--red)">*</span></label>
+          <input type="date" name="expense_date" class="fg-input" id="expenseDate"
+                 value="{{ expense.expense_date.strftime('%Y-%m-%d') if expense else '' }}" required/>
+        </div>
+      </div>
+
+      <div class="fg-wrap">
+        <label class="fg-label">ملاحظات</label>
+        <textarea name="notes" class="fg-input" rows="3"
+                  placeholder="تفاصيل إضافية اختيارية...">{{ expense.notes if expense and expense.notes else '' }}</textarea>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:6px;">
+        <button type="submit" class="btn btn-primary">
+          <i class="ti ti-device-floppy"></i>
+          {% if expense %}حفظ التعديلات{% else %}تسجيل المصروف{% endif %}
+        </button>
+        <a href="{{ url_for('expenses.index') }}" class="btn btn-ghost">إلغاء</a>
+      </div>
+
+    </form>
+  </div>
+
+  <!-- Side -->
+  <div>
+    {% if not expense %}
+    <div class="card" style="padding:18px;margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:700;color:var(--muted-fg);margin-bottom:10px;">مبالغ شائعة</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        {% for amount in [500, 1000, 1500, 2000, 3000, 5000, 8000, 10000] %}
+        <button type="button" class="btn btn-ghost btn-sm"
+                onclick="document.querySelector('[name=amount]').value='{{ amount }}'">
+          {{ amount }}
+        </button>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="card" style="padding:18px;margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:700;color:var(--muted-fg);margin-bottom:10px;">الفئات المتاحة</div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        {% for key, label in categories.items() %}
+        <button type="button" class="btn btn-ghost btn-sm" style="justify-content:flex-start;"
+                onclick="document.querySelector('[name=category]').value='{{ key }}'">
+          {{ label }}
+        </button>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card" style="padding:18px;">
+      <div style="font-size:12px;font-weight:700;color:var(--muted-fg);margin-bottom:10px;">ملاحظة</div>
+      <p style="font-size:12px;color:var(--muted-fg);line-height:1.7;">
+        المصروفات تُخصم من صافي الربح في تقرير الأرباح.
+        تأكد من تصنيف كل مصروف بشكل صحيح للحصول على تقارير دقيقة.
+      </p>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const dateEl = document.getElementById('expenseDate');
+if (dateEl && !dateEl.value) {
+  dateEl.value = new Date().toISOString().split('T')[0];
+}
+</script>
+{% endblock %}

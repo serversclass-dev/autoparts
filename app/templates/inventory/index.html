@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% block title %}جرد المخزون — {{ APP_NAME }}{% endblock %}
+{% block topbar_title %}جرد المخزون{% endblock %}
+{% block topbar_crumb %}المخزون / الجرد{% endblock %}
+
+{% block page_header %}
+<div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;">
+  <div>
+    <h1 style="font-family:'Calistoga',serif;font-size:22px;">جرد المخزون</h1>
+    <p style="font-size:12px;color:var(--muted-fg);margin-top:3px;">أدخل الكميات الفعلية واعتمد الجرد — لا يمكن التراجع</p>
+  </div>
+  <a href="{{ url_for('settings.index') }}" class="btn btn-ghost">
+    <i class="ti ti-arrow-right"></i> رجوع
+  </a>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<div class="strip" style="margin-bottom:16px;">
+  <i class="ti ti-alert-triangle"></i>
+  عند اعتماد الجرد تُحدَّث كميات المنتجات فوراً وتُسجَّل الفروقات في سجل العمليات. تأكد من صحة الأرقام قبل الاعتماد.
+</div>
+
+<!-- Filters -->
+<div class="card" style="margin-bottom:14px;">
+  <div style="padding:14px 18px;">
+    <form method="GET">
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+        <div style="flex:1;min-width:200px;">
+          <div class="fg-label">بحث</div>
+          <div style="position:relative;">
+            <i class="ti ti-search" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted-fg);font-size:15px;"></i>
+            <input name="search" class="fg-input" style="padding-right:34px;" placeholder="اسم المنتج أو الباركود..." value="{{ search }}"/>
+          </div>
+        </div>
+        <div style="min-width:160px;">
+          <div class="fg-label">التصنيف</div>
+          <select name="category_id" class="fg-input">
+            <option value="">— كل التصنيفات —</option>
+            {% for cat in categories %}
+            <option value="{{ cat.id }}" {% if category_id==cat.id|string %}selected{% endif %}>{{ cat.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button type="submit" class="btn btn-primary"><i class="ti ti-filter"></i> فلترة</button>
+          <a href="{{ url_for('inventory.index') }}" class="btn btn-ghost"><i class="ti ti-x"></i></a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Inventory Form -->
+<form method="POST" action="{{ url_for('inventory.commit') }}" id="invForm">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+  <div class="card">
+    <div class="card-h">
+      <span class="card-title"><i class="ti ti-clipboard-list"></i> {{ products|length }} منتج — <span id="diffCount" style="color:var(--acc);">0</span> فروقات</span>
+      <div style="display:flex;gap:8px;">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="resetAll()">
+          <i class="ti ti-refresh"></i> إعادة تعيين
+        </button>
+        <button type="submit" class="btn btn-primary" onclick="return confirmCommit()">
+          <i class="ti ti-clipboard-check"></i> اعتماد الجرد
+        </button>
+      </div>
+    </div>
+
+    <div class="tw">
+      {% if products %}
+      <table id="invTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>المنتج</th>
+            <th>التصنيف</th>
+            <th>الكمية المسجّلة</th>
+            <th style="width:160px;">الكمية الفعلية</th>
+            <th>الفرق</th>
+            <th>الحالة</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in products %}
+          <tr id="row-{{ p.id }}">
+            <td class="td-m" style="font-size:11px;">{{ loop.index }}</td>
+            <td>
+              <div class="td-s">{{ p.name }}</div>
+              {% if p.barcode %}<div style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--muted-fg);">{{ p.barcode }}</div>{% endif %}
+              <input type="hidden" name="product_id[]" value="{{ p.id }}"/>
+            </td>
+            <td>
+              {% if p.category %}<span class="b b-blue">{{ p.category.name }}</span>{% else %}<span class="td-m">—</span>{% endif %}
+            </td>
+            <td>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;" id="sys-{{ p.id }}">{{ p.quantity }}</span>
+              <span class="td-m"> {{ p.unit }}</span>
+            </td>
+            <td>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <input type="number"
+                       name="actual_qty[]"
+                       id="actual-{{ p.id }}"
+                       class="fg-input"
+                       style="width:90px;padding:7px 10px;font-family:'JetBrains Mono',monospace;font-weight:700;text-align:center;"
+                       data-sys="{{ p.quantity }}"
+                       data-id="{{ p.id }}"
+                       value="{{ p.quantity }}"
+                       min="0" step="0.01"
+                       oninput="calcDiff({{ p.id }})"/>
+                <span class="td-m" style="font-size:11px;">{{ p.unit }}</span>
+              </div>
+            </td>
+            <td id="diff-{{ p.id }}" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--muted-fg);">—</td>
+            <td id="status-{{ p.id }}">
+              {% if p.quantity <= 0 %}<span class="b b-red">نفد</span>
+              {% elif p.is_low_stock %}<span class="b b-orange">تنبيه</span>
+              {% else %}<span class="b b-green">جيد</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <!-- Footer -->
+      <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:12px;color:var(--muted-fg);">
+          {{ products|length }} منتج |
+          فروقات: <strong id="diffCountFoot" style="color:var(--acc);">0</strong>
+        </span>
+        <button type="submit" class="btn btn-primary" onclick="return confirmCommit()">
+          <i class="ti ti-clipboard-check"></i> اعتماد الجرد وحفظ التغييرات
+        </button>
+      </div>
+
+      {% else %}
+      <div class="empty"><i class="ti ti-clipboard-off"></i><p>لا توجد منتجات مطابقة</p></div>
+      {% endif %}
+    </div>
+  </div>
+
+</form>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let diffs = 0;
+
+function calcDiff(id) {
+  const inp = document.getElementById('actual-' + id);
+  const sys = parseFloat(inp.dataset.sys);
+  const actual = parseFloat(inp.value) || 0;
+  const diff = actual - sys;
+  const diffCell = document.getElementById('diff-' + id);
+  const statusCell = document.getElementById('status-' + id);
+
+  if (Math.abs(diff) < 0.001) {
+    diffCell.textContent = '—';
+    diffCell.style.color = 'var(--muted-fg)';
+  } else if (diff > 0) {
+    diffCell.textContent = '+' + diff.toFixed(2);
+    diffCell.style.color = 'var(--green)';
+  } else {
+    diffCell.textContent = diff.toFixed(2);
+    diffCell.style.color = 'var(--red)';
+  }
+
+  if (actual <= 0) statusCell.innerHTML = '<span class="b b-red">نفد</span>';
+  else if (actual <= 5) statusCell.innerHTML = '<span class="b b-orange">تنبيه</span>';
+  else statusCell.innerHTML = '<span class="b b-green">جيد</span>';
+
+  updateCount();
+}
+
+function updateCount() {
+  let count = 0;
+  document.querySelectorAll('[name="actual_qty[]"]').forEach(inp => {
+    if (Math.abs((parseFloat(inp.value)||0) - parseFloat(inp.dataset.sys)) >= 0.001) count++;
+  });
+  diffs = count;
+  document.getElementById('diffCount').textContent = count;
+  document.getElementById('diffCountFoot').textContent = count;
+}
+
+function resetAll() {
+  if (!confirm('إعادة تعيين جميع الكميات للقيم المسجّلة؟')) return;
+  document.querySelectorAll('[name="actual_qty[]"]').forEach(inp => {
+    inp.value = inp.dataset.sys;
+    const id = inp.dataset.id || inp.id.replace('actual-','');
+    const diffCell = document.getElementById('diff-' + id);
+    if (diffCell) { diffCell.textContent = '—'; diffCell.style.color = 'var(--muted-fg)'; }
+  });
+  updateCount();
+}
+
+function confirmCommit() {
+  updateCount();
+  if (diffs === 0) { alert('لا توجد تغييرات في الكميات.'); return false; }
+  return confirm(
+    'سيتم تحديث ' + diffs + ' منتج.\n' +
+    'هل أنت متأكد من اعتماد الجرد؟\n' +
+    'لا يمكن التراجع عن هذه العملية.'
+  );
+}
+
+// Init
+document.querySelectorAll('[name="actual_qty[]"]').forEach(inp => {
+  const id = inp.id.replace('actual-', '');
+  inp.dataset.id = id;
+  calcDiff(id);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block title %}{% if product %}تعديل منتج{% else %}منتج جديد{% endif %} — {{ APP_NAME }}{% endblock %}
+{% block topbar_title %}{% if product %}تعديل: {{ product.name }}{% else %}منتج جديد{% endif %}{% endblock %}
+{% block topbar_crumb %}المنتجات{% endblock %}
+
+{% block page_header %}
+<div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;">
+  <div>
+    <h1 style="font-family:'Calistoga',serif;font-size:22px;">
+      {% if product %}تعديل المنتج{% else %}إضافة منتج جديد{% endif %}
+    </h1>
+    <p style="font-size:12px;color:var(--muted-fg);margin-top:3px;">
+      {% if product %}{{ product.name }}{% else %}أدخل بيانات المنتج{% endif %}
+    </p>
+  </div>
+  <a href="{{ url_for('products.index') }}" class="btn btn-ghost">
+    <i class="ti ti-arrow-right"></i> رجوع
+  </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="display:grid;grid-template-columns:1fr 320px;gap:16px;max-width:900px;">
+
+  <!-- Main Form -->
+  <div class="card" style="padding:22px;">
+    <form method="POST"
+          action="{% if product %}{{ url_for('products.edit', product_id=product.id) }}{% else %}{{ url_for('products.create') }}{% endif %}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+      <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border);">
+        البيانات الأساسية
+      </div>
+
+      <div class="fg-wrap">
+        <label class="fg-label">اسم المنتج <span style="color:var(--red)">*</span></label>
+        <input name="name" class="fg-input" placeholder="مثال: زيت موتور شل 5W-30 4L"
+               value="{{ product.name if product else '' }}" required autofocus/>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="fg-wrap">
+          <label class="fg-label">التصنيف</label>
+          <select name="category_id" class="fg-input">
+            <option value="">— بدون تصنيف —</option>
+            {% for cat in categories %}
+            <option value="{{ cat.id }}" {% if product and product.category_id==cat.id %}selected{% endif %}>
+              {{ cat.name }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="fg-wrap">
+          <label class="fg-label">وحدة القياس</label>
+          <select name="unit" class="fg-input">
+            {% for u in ['قطعة','لتر','كيلو','علبة','كرتون','متر','زوج','طقم'] %}
+            <option value="{{ u }}" {% if product and product.unit==u %}selected{% elif not product and u=='قطعة' %}selected{% endif %}>{{ u }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="fg-wrap">
+        <label class="fg-label">الباركود</label>
+        <div style="position:relative;">
+          <i class="ti ti-barcode" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted-fg);font-size:16px;"></i>
+          <input name="barcode" class="fg-input" style="padding-right:36px;"
+                 placeholder="امسح أو اكتب يدوياً"
+                 value="{{ product.barcode if product and product.barcode else '' }}"/>
+        </div>
+      </div>
+
+      <div class="fg-wrap">
+        <label class="fg-label">الوصف</label>
+        <textarea name="description" class="fg-input" rows="2"
+                  placeholder="وصف اختياري...">{{ product.description if product and product.description else '' }}</textarea>
+      </div>
+
+      <div style="font-size:13px;font-weight:700;color:var(--fg);margin:18px 0 14px;padding-bottom:10px;border-bottom:1px solid var(--border);">
+        الأسعار والمخزون
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+        <div class="fg-wrap">
+          <label class="fg-label">سعر الشراء <span style="color:var(--red)">*</span></label>
+          <div style="position:relative;">
+            <input name="purchase_price" id="pp" class="fg-input" type="number"
+                   step="0.01" min="0" placeholder="0.00"
+                   value="{{ product.purchase_price if product else '' }}"
+                   oninput="calcMargin()" required/>
+            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted-fg);">{{ CURRENCY }}</span>
+          </div>
+        </div>
+        <div class="fg-wrap">
+          <label class="fg-label">سعر البيع <span style="color:var(--red)">*</span></label>
+          <div style="position:relative;">
+            <input name="sale_price" id="sp" class="fg-input" type="number"
+                   step="0.01" min="0" placeholder="0.00"
+                   value="{{ product.sale_price if product else '' }}"
+                   oninput="calcMargin()" required/>
+            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted-fg);">{{ CURRENCY }}</span>
+          </div>
+        </div>
+        <div class="fg-wrap">
+          <label class="fg-label">هامش الربح</label>
+          <div id="margin-display" class="fg-input" style="background:var(--muted);color:var(--muted-fg);cursor:default;">—</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="fg-wrap">
+          <label class="fg-label">الكمية الحالية</label>
+          <input name="quantity" class="fg-input" type="number" step="0.01" min="0"
+                 value="{{ product.quantity if product else '0' }}" placeholder="0"/>
+        </div>
+        <div class="fg-wrap">
+          <label class="fg-label">حد التنبيه عند النقص</label>
+          <input name="low_stock_alert" class="fg-input" type="number" min="0"
+                 value="{{ product.low_stock_alert if product else '5' }}"/>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:6px;">
+        <button type="submit" class="btn btn-primary">
+          <i class="ti ti-device-floppy"></i>
+          {% if product %}حفظ التعديلات{% else %}إضافة المنتج{% endif %}
+        </button>
+        <a href="{{ url_for('products.index') }}" class="btn btn-ghost">إلغاء</a>
+      </div>
+
+    </form>
+  </div>
+
+  <!-- Side Info -->
+  <div>
+    {% if product %}
+    <div class="card" style="padding:18px;margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:700;color:var(--muted-fg);margin-bottom:12px;">معلومات المنتج</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;justify-content:space-between;font-size:12px;">
+          <span style="color:var(--muted-fg);">الكمية الحالية</span>
+          <span class="b {% if product.quantity <= 0 %}b-red{% elif product.is_low_stock %}b-orange{% else %}b-green{% endif %}">
+            {{ product.quantity }} {{ product.unit }}
+          </span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;">
+          <span style="color:var(--muted-fg);">قيمة المخزون</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-weight:600;">{{ "%.2f"|format(product.stock_value) }} {{ CURRENCY }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;">
+          <span style="color:var(--muted-fg);">تاريخ الإضافة</span>
+          <span style="color:var(--muted-fg);">{{ product.created_at.strftime('%Y-%m-%d') }}</span>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card" style="padding:18px;">
+      <div style="font-size:12px;font-weight:700;color:var(--muted-fg);margin-bottom:10px;">نصائح</div>
+      <ul style="font-size:12px;color:var(--muted-fg);line-height:1.8;padding-right:14px;">
+        <li>اجعل اسم المنتج واضحاً ومحدداً</li>
+        <li>أضف الباركود لتسريع البحث في نقطة البيع</li>
+        <li>حد التنبيه يُنبّهك عند قرب نفاد المخزون</li>
+        <li>سعر الشراء يُحفظ في بنود الفاتورة لحساب الأرباح بدقة</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CURRENCY = "{{ CURRENCY }}";
+function calcMargin(){
+  const pp=parseFloat(document.getElementById('pp').value)||0;
+  const sp=parseFloat(document.getElementById('sp').value)||0;
+  const el=document.getElementById('margin-display');
+  if(!pp&&!sp){el.textContent='—';el.style.color='var(--muted-fg)';return;}
+  const margin=sp-pp;
+  const pct=pp>0?((margin/pp)*100).toFixed(1):0;
+  el.textContent=(margin>=0?'+':'')+margin.toFixed(2)+' '+CURRENCY+' ('+pct+'%)';
+  el.style.color=margin>=0?'var(--green)':'var(--red)';
+}
+document.addEventListener('DOMContentLoaded',calcMargin);
+</script>
+{% endblock %}

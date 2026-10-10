@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>فاتورة {{ sale.invoice_number }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{
+      background:#f0f2f5;
+      font-family:'Tajawal',sans-serif;
+      font-size:14px;
+      color:#1a1a2e;
+      -webkit-font-smoothing:antialiased;
+    }
+    @media print{
+      body{background:#fff;}
+      .no-print{display:none!important;}
+      .invoice-wrap{box-shadow:none!important;margin:0!important;border-radius:0!important;}
+      @page{margin:15mm;}
+    }
+
+    /* ── Action Bar ── */
+    .action-bar{
+      background:#1a1a2e;
+      padding:12px 24px;
+      display:flex;
+      gap:10px;
+      align-items:center;
+    }
+    .btn-act{
+      display:inline-flex;align-items:center;gap:6px;
+      padding:8px 18px;border-radius:8px;font-family:'Tajawal',sans-serif;
+      font-size:13px;font-weight:700;cursor:pointer;border:none;
+      text-decoration:none;transition:all .2s;
+    }
+    .btn-print{background:linear-gradient(135deg,#0052FF,#4D7CFF);color:#fff;}
+    .btn-print:hover{filter:brightness(1.1);}
+    .btn-back{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2);}
+    .btn-back:hover{background:rgba(255,255,255,.2);}
+
+    /* ── Invoice Wrap ── */
+    .invoice-wrap{
+      max-width:800px;
+      margin:30px auto;
+      background:#fff;
+      border-radius:16px;
+      box-shadow:0 8px 40px rgba(0,0,0,.12);
+      overflow:hidden;
+    }
+
+    /* ── Header ── */
+    .inv-header{
+      background:linear-gradient(135deg,#0a1628 0%,#1a3a6e 60%,#0052FF 100%);
+      padding:36px 40px 28px;
+      position:relative;
+      overflow:hidden;
+    }
+    .inv-header::before{
+      content:'';position:absolute;top:-60px;left:-60px;
+      width:250px;height:250px;border-radius:50%;
+      background:rgba(255,255,255,.04);pointer-events:none;
+    }
+    .inv-header::after{
+      content:'';position:absolute;bottom:-40px;right:80px;
+      width:180px;height:180px;border-radius:50%;
+      background:rgba(0,82,255,.15);pointer-events:none;
+    }
+    .shop-logo{ display:none; }
+    .shop-name{
+      font-size:32px;font-weight:900;color:#fff;letter-spacing:.5px;
+      line-height:1.2;
+    }
+    .shop-sub{font-size:12px;color:rgba(255,255,255,.5);margin-top:4px;font-weight:400;}
+    .inv-label{
+      position:absolute;top:36px;left:40px;text-align:left;
+    }
+    .inv-label-title{
+      font-size:11px;color:rgba(255,255,255,.4);font-weight:500;
+      letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;
+    }
+    .inv-number{
+      font-family:'JetBrains Mono',monospace;
+      font-size:18px;font-weight:700;color:#fff;
+      background:rgba(255,255,255,.1);
+      border:1px solid rgba(255,255,255,.2);
+      padding:6px 14px;border-radius:8px;
+      display:inline-block;
+    }
+
+    /* ── Status Banner (cancelled) ── */
+    .cancelled-overlay{
+      position:fixed;top:0;left:0;right:0;bottom:0;
+      display:flex;align-items:center;justify-content:center;
+      pointer-events:none;z-index:0;
+    }
+    .cancelled-stamp{
+      font-size:80px;font-weight:900;
+      color:rgba(220,53,69,.12);
+      transform:rotate(-25deg);
+      letter-spacing:4px;
+    }
+
+    /* ── Meta Section ── */
+    .inv-meta{
+      display:grid;grid-template-columns:1fr 1fr;
+      gap:0;
+      border-bottom:1px solid #e8ecf0;
+    }
+    .meta-block{padding:24px 40px;}
+    .meta-block:first-child{border-left:1px solid #e8ecf0;}
+    .meta-block-title{
+      font-size:10px;font-weight:700;color:#0052FF;
+      letter-spacing:2px;text-transform:uppercase;
+      margin-bottom:14px;padding-bottom:8px;
+      border-bottom:2px solid #e8f0ff;
+    }
+    .meta-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+    .meta-key{font-size:14px;color:#8896a5;font-weight:500;}
+    .meta-val{font-size:15px;color:#1a1a2e;font-weight:700;}
+    .meta-val.mono{font-family:'JetBrains Mono',monospace;font-size:12px;}
+
+    /* ── Status Badge ── */
+    .badge{
+      display:inline-flex;align-items:center;gap:4px;
+      font-size:11px;font-weight:700;
+      padding:3px 10px;border-radius:20px;
+    }
+    .badge-success{background:#edfaf5;color:#0D7C5A;border:1px solid rgba(13,124,90,.2);}
+    .badge-warning{background:#fffbeb;color:#B45309;border:1px solid rgba(180,83,9,.2);}
+    .badge-danger{background:#fef2f2;color:#C0392B;border:1px solid rgba(192,57,43,.2);}
+    .badge-dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+
+    /* ── Customer Block ── */
+    .customer-card{
+      background:linear-gradient(135deg,#f8faff,#eef3ff);
+      border:1px solid #d0dcff;
+      border-radius:10px;
+      padding:14px 16px;
+    }
+    .customer-name{font-size:15px;font-weight:800;color:#1a1a2e;margin-bottom:6px;}
+    .customer-row{font-size:12px;color:#6b7a8d;display:flex;gap:6px;align-items:center;margin-bottom:3px;}
+    .cash-customer{
+      display:flex;align-items:center;gap:8px;
+      color:#8896a5;font-size:13px;font-weight:600;
+      padding:12px 0;
+    }
+    .cash-icon{
+      width:36px;height:36px;border-radius:50%;
+      background:#f0f2f5;
+      display:flex;align-items:center;justify-content:center;
+      font-size:16px;
+    }
+
+    /* ── Items Table ── */
+    .items-section{padding:0 40px 24px;}
+    .items-title{
+      font-size:10px;font-weight:700;color:#0052FF;
+      letter-spacing:2px;margin:24px 0 14px;
+      padding-bottom:8px;border-bottom:2px solid #e8f0ff;
+    }
+    .items-table{width:100%;border-collapse:collapse;}
+    .items-table thead tr{background:linear-gradient(135deg,#0a1628,#1a3a6e);}
+    .items-table thead th{
+      padding:13px 16px;
+      font-size:13px;font-weight:700;color:rgba(255,255,255,.85);
+      text-align:right;white-space:nowrap;
+    }
+    .items-table thead th:last-child{text-align:left;}
+    .items-table tbody tr{border-bottom:1px solid #f0f2f5;transition:background .1s;}
+    .items-table tbody tr:hover{background:#f8faff;}
+    .items-table tbody tr:last-child{border-bottom:none;}
+    .items-table td{
+      padding:14px 16px;font-size:15px;color:#4a5568;
+    }
+    .items-table td.num{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:#1a1a2e;}
+    .items-table td.product-name{font-weight:700;color:#1a1a2e;}
+    .items-table tfoot tr{background:#f8faff;}
+    .items-table tfoot td{padding:10px 14px;font-size:12px;font-weight:700;color:#8896a5;}
+
+    /* ── Totals ── */
+    .totals-section{
+      margin:0 40px 32px;
+      display:flex;justify-content:flex-end;
+    }
+    .totals-box{
+      width:300px;
+      border:1px solid #e8ecf0;
+      border-radius:12px;
+      overflow:hidden;
+    }
+    .totals-row{
+      display:flex;justify-content:space-between;align-items:center;
+      padding:10px 16px;border-bottom:1px solid #f0f2f5;
+    }
+    .totals-row:last-child{border-bottom:none;}
+    .totals-key{font-size:14px;color:#8896a5;font-weight:500;}
+    .totals-val{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:#1a1a2e;}
+    .totals-row.discount .totals-key{color:#C0392B;}
+    .totals-row.discount .totals-val{color:#C0392B;}
+    .totals-row.grand{
+      background:linear-gradient(135deg,#0a1628,#1a3a6e);
+      padding:14px 16px;
+    }
+    .totals-row.grand .totals-key{color:rgba(255,255,255,.7);font-size:13px;font-weight:700;}
+    .totals-row.grand .totals-val{color:#fff;font-size:16px;}
+    .totals-row.payment-method .totals-val{
+      background:#eef3ff;color:#0052FF;
+      padding:2px 10px;border-radius:20px;
+      font-family:'Tajawal',sans-serif;font-size:12px;font-weight:700;
+    }
+
+    /* ── Notes ── */
+    .notes-section{
+      margin:0 40px 28px;
+      background:#fffbeb;border:1px solid rgba(180,83,9,.2);
+      border-radius:10px;padding:14px 18px;
+    }
+    .notes-title{font-size:11px;font-weight:700;color:#B45309;margin-bottom:6px;}
+    .notes-text{font-size:13px;color:#78450a;}
+
+    /* ── Footer ── */
+    .inv-footer{
+      background:linear-gradient(135deg,#0a1628,#1a3a6e);
+      padding:20px 40px;
+      display:flex;align-items:center;justify-content:space-between;
+    }
+    .footer-left{color:rgba(255,255,255,.5);font-size:11px;}
+    .footer-center{color:rgba(255,255,255,.7);font-size:12px;font-weight:600;text-align:center;}
+    .footer-right{color:rgba(255,255,255,.5);font-size:11px;font-family:'JetBrains Mono',monospace;}
+  </style>
+</head>
+<body>
+
+{% if sale.status == 'cancelled' %}
+<div class="cancelled-overlay"><div class="cancelled-stamp">ملغاة</div></div>
+{% endif %}
+
+<!-- Action Bar -->
+<div class="action-bar no-print">
+  <button onclick="window.print()" class="btn-act btn-print">🖨 طباعة</button>
+  <a href="{{ url_for('sales.detail', sale_id=sale.id) }}" class="btn-act btn-back">→ رجوع</a>
+</div>
+
+<div class="invoice-wrap">
+
+  <!-- ── Header ── -->
+  <div class="inv-header">
+    <div class="shop-name">{{ APP_NAME }}</div>
+    <div class="shop-sub">فاتورة مبيعات رسمية</div>
+    <div class="inv-label">
+      <div class="inv-label-title">رقم الفاتورة</div>
+      <div class="inv-number">{{ sale.invoice_number }}</div>
+    </div>
+  </div>
+
+  <!-- ── Meta ── -->
+  <div class="inv-meta">
+    <!-- Invoice Info -->
+    <div class="meta-block">
+      <div class="meta-block-title">بيانات الفاتورة</div>
+      <div class="meta-row">
+        <span class="meta-key">التاريخ</span>
+        <span class="meta-val mono">{{ sale.created_at.strftime('%Y-%m-%d') }}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-key">الوقت</span>
+        <span class="meta-val mono">{{ sale.created_at.strftime('%H:%M') }}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-key">الكاشير</span>
+        <span class="meta-val">{{ sale.cashier.full_name }}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-key">الحالة</span>
+        <span>
+          {% if sale.status == 'completed' %}
+            <span class="badge badge-success"><span class="badge-dot"></span>مكتملة</span>
+          {% elif sale.status == 'on_credit' %}
+            <span class="badge badge-warning"><span class="badge-dot"></span>آجل</span>
+          {% else %}
+            <span class="badge badge-danger"><span class="badge-dot"></span>ملغاة</span>
+          {% endif %}
+        </span>
+      </div>
+    </div>
+
+    <!-- Customer Info -->
+    <div class="meta-block">
+      <div class="meta-block-title">بيانات العميل</div>
+      {% if sale.customer %}
+      <div class="customer-card">
+        <div class="customer-name">{{ sale.customer.name }}</div>
+        {% if sale.customer.phone %}
+        <div class="customer-row">📞 {{ sale.customer.phone }}</div>
+        {% endif %}
+        {% if sale.customer.car_plate %}
+        <div class="customer-row">🚗 {{ sale.customer.car_plate }}</div>
+        {% endif %}
+        {% if sale.customer.car_model %}
+        <div class="customer-row">🔧 {{ sale.customer.car_model }}</div>
+        {% endif %}
+      </div>
+      {% else %}
+      <div class="cash-customer">
+        <div class="cash-icon">👤</div>
+        <span>عميل نقدي</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ── Items ── -->
+  <div class="items-section">
+    <div class="items-title">تفاصيل الأصناف</div>
+    <table class="items-table">
+      <thead>
+        <tr>
+          <th style="width:40px">#</th>
+          <th>المنتج</th>
+          <th style="width:120px;text-align:center">الكمية</th>
+          <th style="width:120px;text-align:center">سعر البيع</th>
+          <th style="width:130px;text-align:left">الإجمالي</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in sale.items %}
+        <tr>
+          <td class="num" style="color:#8896a5">{{ loop.index }}</td>
+          <td class="product-name">{{ item.product.name }}</td>
+          <td class="num" style="text-align:center">{{ item.quantity }} {{ item.product.unit }}</td>
+          <td class="num" style="text-align:center">{{ "%.2f"|format(item.unit_price) }}</td>
+          <td class="num" style="text-align:left">{{ "%.2f"|format(item.total) }} د.ل</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── Totals ── -->
+  <div class="totals-section">
+    <div class="totals-box">
+      <div class="totals-row">
+        <span class="totals-key">المجموع الفرعي</span>
+        <span class="totals-val">{{ "%.2f"|format(sale.subtotal) }} د.ل</span>
+      </div>
+      {% if sale.discount > 0 %}
+      <div class="totals-row discount">
+        <span class="totals-key">
+          الخصم ({{ sale.discount }}{{ '%' if sale.discount_type == 'percent' else ' د.ل' }})
+        </span>
+        <span class="totals-val">- {{ "%.2f"|format(sale.discount_amount) }} د.ل</span>
+      </div>
+      {% endif %}
+      <div class="totals-row grand">
+        <span class="totals-key">الإجمالي النهائي</span>
+        <span class="totals-val">{{ "%.2f"|format(sale.total) }} د.ل</span>
+      </div>
+      {% if sale.payment_method != 'credit' %}
+      <div class="totals-row">
+        <span class="totals-key">المبلغ المدفوع</span>
+        <span class="totals-val">{{ "%.2f"|format(sale.paid) }} د.ل</span>
+      </div>
+      <div class="totals-row">
+        <span class="totals-key">الباقي</span>
+        <span class="totals-val">{{ "%.2f"|format(sale.change) }} د.ل</span>
+      </div>
+      {% endif %}
+      <div class="totals-row payment-method">
+        <span class="totals-key">طريقة الدفع</span>
+        <span class="totals-val">
+          {% if sale.payment_method == 'cash' %}نقدي
+          {% elif sale.payment_method == 'credit' %}آجل
+          {% else %}تحويل بنكي{% endif %}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  {% if sale.notes %}
+  <div class="notes-section">
+    <div class="notes-title">ملاحظات</div>
+    <div class="notes-text">{{ sale.notes }}</div>
+  </div>
+  {% endif %}
+
+  <!-- ── Footer ── -->
+  <div class="inv-footer">
+    <div class="footer-left">{{ sale.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+    <div class="footer-center">شكراً لتعاملكم معنا 🙏</div>
+    <div class="footer-right">{{ sale.invoice_number }}</div>
+  </div>
+
+</div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+if (params.get('autoprint') === '1') window.print();
+</script>
+</body>
+</html>

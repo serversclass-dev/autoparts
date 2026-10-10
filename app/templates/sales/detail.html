@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+{% block title %}فاتورة {{ sale.invoice_number }} — {{ APP_NAME }}{% endblock %}
+{% block topbar_title %}تفاصيل الفاتورة{% endblock %}
+{% block topbar_crumb %}المبيعات / {{ sale.invoice_number }}{% endblock %}
+
+{% block page_header %}
+<div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;">
+  <div>
+    <h1 style="font-family:'Calistoga',serif;font-size:22px;">{{ sale.invoice_number }}</h1>
+    <p style="font-size:12px;color:var(--muted-fg);margin-top:3px;">
+      {{ sale.created_at.strftime('%Y-%m-%d %H:%M') }} — {{ sale.cashier.full_name }}
+    </p>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <a href="{{ url_for('sales.print_invoice', sale_id=sale.id) }}" class="btn btn-ghost">
+      <i class="ti ti-printer"></i> طباعة
+    </a>
+    <a href="{{ url_for('sales.pdf_invoice', sale_id=sale.id) }}" class="btn btn-ghost">
+      <i class="ti ti-file-type-pdf"></i> PDF
+    </a>
+    {% if current_user.is_admin and sale.status != 'cancelled' %}
+    <button onclick="openModal('cancelModal')" class="btn btn-danger">
+      <i class="ti ti-ban"></i> إلغاء الفاتورة
+    </button>
+    {% endif %}
+    <a href="{{ url_for('sales.index') }}" class="btn btn-ghost">
+      <i class="ti ti-arrow-right"></i> رجوع
+    </a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+
+{% if sale.status == 'cancelled' %}
+<div class="strip" style="background:var(--red-bg);border-color:rgba(192,57,43,.2);color:var(--red);margin-bottom:16px;">
+  <i class="ti ti-ban"></i>
+  هذه الفاتورة <strong>ملغاة</strong> — تم إرجاع جميع الكميات للمخزون.
+</div>
+{% endif %}
+
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px;">
+
+  <!-- Invoice Info -->
+  <div class="card" style="padding:18px;">
+    <div style="font-size:12px;font-weight:700;color:var(--muted-fg);margin-bottom:12px;display:flex;align-items:center;gap:6px;">
+      <i class="ti ti-receipt" style="font-size:14px;"></i> معلومات الفاتورة
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span style="color:var(--muted-fg);">رقم الفاتورة</span>
+        <span class="b b-blue">{{ sale.invoice_number }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span style="color:var(--muted-fg);">التاريخ</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;">{{ sale.created_at.strftime('%Y-%m-%d') }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span style="color:var(--muted-fg);">الوقت</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;">{{ sale.created_at.strftime('%H:%M:%S') }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span style="color:var(--muted-fg);">الكاشير</span>
+        <span style="font-weight:600;">{{ sale.cashier.full_name }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span style="color:var(--muted-fg);">طريقة الدفع</span>
+        {% if sale.payment_method == 'cash' %}<span class="b b-green">نقدي</span>
+        {% elif sale.payment_method == 'credit' %}<span class="b b-orange">آجل</span>
+        {% else %}<span class="b b-blue">تحويل</span>{% endif %}
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span style="color:var(--muted-fg);">الحالة</span>
+        {% if sale.status == 'completed' %}<span class="b b-green">مكتملة</span>
+        {% elif sale.status == 'on_credit' %}<span class="b b-orange">آجل</span>
+        {% else %}<span class="b b-muted">ملغاة</span>{% endif %}
+      </div>
+      {% if sale.notes %}
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span style="color:var(--muted-fg);">ملاحظات</span>
+        <span style="color:var(--muted-fg);max-width:150px;text-align:left;">{{ sale.notes }}</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Customer Info -->
+  <div class="card" style="padding:18px;">
+    <div style="font-size:12px;font-weight:700;color:var(--muted-fg);margin-bottom:12px;display:flex;align-items:center;gap:6px;">
+      <i class="ti ti-user" style="font-size:14px;"></i> معلومات العميل
+    </div>
+    {% if sale.customer %}
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span style="color:var(--muted-fg);">الاسم</span>
+        <span style="font-weight:700;">{{ sale.customer.name }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span style="color:var(--muted-fg);">الهاتف</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;">{{ sale.customer.phone or '—' }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span style="color:var(--muted-fg);">لوحة السيارة</span>
+        {% if sale.customer.car_plate %}<span class="b b-dark">{{ sale.customer.car_plate }}</span>{% else %}<span class="td-m">—</span>{% endif %}
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span style="color:var(--muted-fg);">الموديل</span>
+        <span style="color:var(--muted-fg);">{{ sale.customer.car_model or '—' }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;border-top:1px solid var(--border);padding-top:8px;margin-top:4px;">
+        <span style="color:var(--muted-fg);">رصيده الحالي</span>
+        <span style="font-weight:700;{% if sale.customer.balance > 0 %}color:var(--red){% else %}color:var(--green){% endif %}">
+          {{ sale.customer.balance_label }}
+        </span>
+      </div>
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:24px 0;color:var(--muted-fg);">
+      <i class="ti ti-user-off" style="font-size:28px;opacity:.2;"></i>
+      <p style="font-size:12px;margin-top:8px;">عميل نقدي</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Totals -->
+  <div class="card" style="padding:18px;">
+    <div style="font-size:12px;font-weight:700;color:var(--muted-fg);margin-bottom:12px;display:flex;align-items:center;gap:6px;">
+      <i class="ti ti-calculator" style="font-size:14px;"></i> ملخص المبلغ
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span style="color:var(--muted-fg);">المجموع الفرعي</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-weight:600;">{{ "%.2f"|format(sale.subtotal) }}</span>
+      </div>
+      {% if sale.discount > 0 %}
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span style="color:var(--red);">الخصم ({{ sale.discount }}{{ '%' if sale.discount_type=='percent' else ' ر.س' }})</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--red);">— {{ "%.2f"|format(sale.discount_amount) }}</span>
+      </div>
+      {% endif %}
+      <div style="display:flex;justify-content:space-between;align-items:baseline;border-top:2px solid var(--border);padding-top:10px;margin-top:4px;">
+        <span style="font-size:15px;font-weight:800;">الإجمالي</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;">{{ "%.2f"|format(sale.total) }}</span>
+      </div>
+      {% if sale.payment_method != 'credit' %}
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span style="color:var(--muted-fg);">المدفوع</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-weight:600;">{{ "%.2f"|format(sale.paid) }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span style="color:var(--muted-fg);">الباقي</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-weight:600;">{{ "%.2f"|format(sale.change) }}</span>
+      </div>
+      {% endif %}
+      {% if current_user.is_admin %}
+      <div style="display:flex;justify-content:space-between;font-size:12px;border-top:1px solid var(--border);padding-top:8px;margin-top:4px;">
+        <span style="color:var(--muted-fg);">صافي الربح</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-weight:700;{% if sale.profit >= 0 %}color:var(--green){% else %}color:var(--red){% endif %}">
+          {{ "%.2f"|format(sale.profit) }}
+        </span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<!-- Items Table -->
+<div class="card">
+  <div class="card-h">
+    <span class="card-title"><i class="ti ti-list"></i> بنود الفاتورة</span>
+    <span class="b b-blue">{{ sale.items.count() }} بند</span>
+  </div>
+  <div class="tw">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>المنتج</th>
+          <th>الكمية</th>
+          <th>سعر البيع</th>
+          {% if current_user.is_admin %}<th>سعر الشراء</th>{% endif %}
+          <th>الإجمالي</th>
+          {% if current_user.is_admin %}<th>الربح</th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in sale.items %}
+        <tr>
+          <td class="td-m" style="font-size:11px;">{{ loop.index }}</td>
+          <td>
+            <div class="td-s">{{ item.product.name }}</div>
+            {% if item.product.category %}
+            <div style="font-size:11px;color:var(--muted-fg);">{{ item.product.category.name }}</div>
+            {% endif %}
+          </td>
+          <td class="td-n">{{ item.quantity }} {{ item.product.unit }}</td>
+          <td class="td-n">{{ "%.2f"|format(item.unit_price) }}</td>
+          {% if current_user.is_admin %}
+          <td class="td-n td-m">{{ "%.2f"|format(item.purchase_price) }}</td>
+          {% endif %}
+          <td class="td-n" style="color:var(--acc);font-weight:700;">{{ "%.2f"|format(item.total) }}</td>
+          {% if current_user.is_admin %}
+          <td class="td-n" style="{% if item.profit >= 0 %}color:var(--green){% else %}color:var(--red){% endif %}">
+            {{ "%.2f"|format(item.profit) }}
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr style="background:var(--muted);">
+          <td colspan="{% if current_user.is_admin %}4{% else %}3{% endif %}" style="padding:10px 16px;font-size:12px;font-weight:700;text-align:left;color:var(--fg);">الإجمالي</td>
+          {% if current_user.is_admin %}<td style="padding:10px 16px;"></td>{% endif %}
+          <td style="padding:10px 16px;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--acc);">{{ "%.2f"|format(sale.total) }}</td>
+          {% if current_user.is_admin %}
+          <td style="padding:10px 16px;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--green);">{{ "%.2f"|format(sale.profit) }}</td>
+          {% endif %}
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+
+<!-- Cancel Modal -->
+{% if current_user.is_admin and sale.status != 'cancelled' %}
+<div class="modal-overlay" id="cancelModal">
+  <div class="modal-box">
+    <div style="width:48px;height:48px;border-radius:50%;background:var(--red-bg);display:flex;align-items:center;justify-content:center;margin-bottom:14px;">
+      <i class="ti ti-ban" style="font-size:22px;color:var(--red);"></i>
+    </div>
+    <div class="modal-title">إلغاء الفاتورة</div>
+    <div class="modal-desc">
+      هل أنت متأكد من إلغاء الفاتورة <strong>{{ sale.invoice_number }}</strong>؟
+      سيتم إرجاع جميع الكميات للمخزون ولا يمكن التراجع.
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('cancelModal')">تراجع</button>
+      <form method="POST" action="{{ url_for('sales.cancel', sale_id=sale.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <button type="submit" class="btn btn-danger"><i class="ti ti-ban"></i> نعم، إلغاء</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

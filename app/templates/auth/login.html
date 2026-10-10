@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>تسجيل الدخول — {{ APP_NAME }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=Calistoga&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css"/>
+  <style>
+  :root{
+    --bg:#FAFAFA;--fg:#0F172A;--card:#FFFFFF;--muted:#F1F5F9;
+    --muted-fg:#64748B;--border:#E2E8F0;--border-s:#CBD5E1;
+    --acc:#0052FF;--acc2:#4D7CFF;
+    --green:#0D7C5A;--green-bg:#EDFAF5;
+    --red:#C0392B;--red-bg:#FEF2F2;
+    --orange:#B45309;--orange-bg:#FFFBEB;
+    --grad:linear-gradient(135deg,#0052FF,#4D7CFF);
+    --sh-acc:0 4px 14px rgba(0,82,255,.22);
+    --sh-acc-lg:0 8px 28px rgba(0,82,255,.35);
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html,body{
+    height:100%;font-family:'Tajawal',system-ui,sans-serif;
+    font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased;
+  }
+  body{display:grid;grid-template-columns:1fr 460px;min-height:100vh;}
+
+  /* ── LEFT HERO PANEL ── */
+  .hero{
+    background:var(--fg);
+    display:flex;flex-direction:column;justify-content:space-between;
+    padding:44px;position:relative;overflow:hidden;
+  }
+  .hero::before{
+    content:'';position:absolute;top:-80px;right:-80px;
+    width:420px;height:420px;border-radius:50%;
+    background:radial-gradient(circle,rgba(0,82,255,.22) 0%,transparent 65%);
+    pointer-events:none;
+  }
+  .hero::after{
+    content:'';position:absolute;bottom:-60px;left:-60px;
+    width:320px;height:320px;border-radius:50%;
+    background:radial-gradient(circle,rgba(77,124,255,.12) 0%,transparent 65%);
+    pointer-events:none;
+  }
+
+  /* ── RUNX — force LTR so letters never reverse ── */
+  .brand-lockup{position:relative;z-index:1;}
+  .brand-powered{
+    font-size:11px;color:rgba(255,255,255,.3);
+    font-family:'JetBrains Mono',monospace;letter-spacing:.14em;
+    margin-bottom:10px;
+    direction:ltr;text-align:left;
+  }
+  .brand-runx{
+    direction:ltr;          /* critical — prevents RTL reversal */
+    display:flex;align-items:flex-end;gap:2px;
+    line-height:1;
+  }
+  .brand-run{
+    font-family:'JetBrains Mono',monospace;
+    font-size:58px;font-weight:700;color:#fff;
+    letter-spacing:-2px;
+  }
+  .brand-x{
+    font-family:'JetBrains Mono',monospace;
+    font-size:58px;font-weight:700;
+    background:var(--grad);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    letter-spacing:-2px;
+  }
+  .brand-dot{
+    width:10px;height:10px;border-radius:50%;
+    background:var(--grad);
+    margin-bottom:10px;margin-left:2px;
+    box-shadow:0 0 18px rgba(0,82,255,.9);
+    flex-shrink:0;
+  }
+  .brand-tagline{
+    font-size:13px;color:rgba(255,255,255,.35);
+    font-weight:400;margin-top:10px;
+    max-width:300px;line-height:1.7;
+    /* RTL ok for Arabic text */
+  }
+
+  /* ── HERO BODY ── */
+  .hero-body{
+    position:relative;z-index:1;
+    flex:1;display:flex;flex-direction:column;justify-content:center;
+    padding:44px 0;
+  }
+  .hero-system-name{
+    font-family:'Calistoga',serif;font-size:32px;color:#fff;
+    line-height:1.25;margin-bottom:12px;
+  }
+  .hero-system-name span{
+    background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .hero-desc{
+    font-size:14px;color:rgba(255,255,255,.4);line-height:1.8;max-width:320px;
+  }
+
+  /* ── STATS ── */
+  .hero-stats{
+    position:relative;z-index:1;
+    display:grid;grid-template-columns:repeat(3,1fr);gap:12px;
+  }
+  .hero-stat{
+    background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);
+    border-radius:10px;padding:14px;
+  }
+  .hero-stat-val{
+    font-family:'JetBrains Mono',monospace;font-size:20px;
+    font-weight:700;color:#fff;margin-bottom:3px;
+    direction:ltr;text-align:left;
+  }
+  .hero-stat-lbl{font-size:11px;color:rgba(255,255,255,.3);}
+
+  /* ── RIGHT FORM PANEL ── */
+  .form-panel{
+    background:var(--card);
+    display:flex;align-items:center;justify-content:center;
+    padding:44px;border-right:1px solid var(--border);
+  }
+  .login-box{width:100%;max-width:360px;}
+
+  /* Compact brand in form */
+  .form-brand{
+    display:flex;align-items:center;gap:12px;
+    margin-bottom:28px;padding-bottom:20px;
+    border-bottom:1px solid var(--border);
+  }
+  .form-brand-icon{
+    width:38px;height:38px;border-radius:10px;
+    background:var(--grad);display:flex;align-items:center;justify-content:center;
+    color:#fff;font-size:18px;flex-shrink:0;
+    box-shadow:var(--sh-acc);
+  }
+  .form-brand-text{}
+  /* Force LTR for RUNX in form too */
+  .form-brand-runx{
+    font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;
+    color:var(--fg);letter-spacing:-.5px;
+    direction:ltr;display:block;
+  }
+  .form-brand-runx .x-part{
+    background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .form-brand-sys{font-size:11px;color:var(--muted-fg);margin-top:1px;}
+
+  .login-heading{font-family:'Calistoga',serif;font-size:22px;color:var(--fg);margin-bottom:4px;}
+  .login-sub{font-size:13px;color:var(--muted-fg);margin-bottom:22px;}
+
+  /* Flash */
+  .flash{
+    display:flex;align-items:center;gap:8px;border-radius:8px;
+    padding:10px 12px;font-size:13px;margin-bottom:16px;border:1px solid;
+  }
+  .flash-danger{background:var(--red-bg);color:var(--red);border-color:rgba(192,57,43,.2);}
+  .flash-success{background:var(--green-bg);color:var(--green);border-color:rgba(13,124,90,.2);}
+  .flash-warning{background:var(--orange-bg);color:var(--orange);border-color:rgba(180,83,9,.2);}
+
+  /* Form */
+  .fg{margin-bottom:14px;}
+  .fl{display:block;font-size:12px;font-weight:700;color:var(--muted-fg);margin-bottom:6px;}
+  .fi-wrap{position:relative;}
+  .fi-icon{
+    position:absolute;right:12px;top:50%;transform:translateY(-50%);
+    color:var(--muted-fg);font-size:16px;pointer-events:none;
+  }
+  .fi{
+    width:100%;border:1px solid var(--border-s);border-radius:9px;
+    padding:11px 40px 11px 12px;font-size:13px;font-family:'Tajawal',sans-serif;
+    color:var(--fg);background:var(--card);outline:none;
+    transition:border-color .15s,box-shadow .15s;
+  }
+  .fi:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(0,82,255,.12);}
+  .fi::placeholder{color:var(--muted-fg);opacity:.6;}
+
+  .remember-row{display:flex;align-items:center;gap:8px;margin-bottom:20px;}
+  .remember-row input[type=checkbox]{width:16px;height:16px;cursor:pointer;accent-color:var(--acc);}
+  .remember-row label{font-size:12px;color:var(--muted-fg);cursor:pointer;}
+
+  .submit-btn{
+    width:100%;background:var(--grad);color:#fff;border:none;border-radius:10px;
+    padding:13px;font-family:'Tajawal',sans-serif;font-size:14px;font-weight:800;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
+    box-shadow:var(--sh-acc);transition:all .2s;
+  }
+  .submit-btn:hover{transform:translateY(-1px);box-shadow:var(--sh-acc-lg);filter:brightness(1.08);}
+  .submit-btn:active{transform:scale(.98);}
+
+  .login-footer{
+    margin-top:22px;text-align:center;font-size:11px;color:var(--muted-fg);
+    padding-top:16px;border-top:1px solid var(--border);
+  }
+  .lf-brand{
+    font-family:'JetBrains Mono',monospace;font-weight:700;
+    background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;
+    direction:ltr;display:inline-block;
+  }
+
+  @media(max-width:768px){
+    body{grid-template-columns:1fr;}
+    .hero{display:none;}
+    .form-panel{padding:24px;}
+  }
+  </style>
+</head>
+<body>
+
+<!-- ── LEFT HERO ── -->
+<div class="hero">
+
+  <div class="brand-lockup">
+    <div class="brand-powered">POWERED BY</div>
+    <div class="brand-runx">
+      <span class="brand-run">RUN</span>
+      <span class="brand-x">X</span>
+      <span class="brand-dot"></span>
+    </div>
+    <div class="brand-tagline">منصة إدارة الأعمال الذكية لمحلات الزيوت وكماليات السيارات</div>
+  </div>
+
+  <div class="hero-body">
+    <div class="hero-system-name">
+      إدارة محلك<br>بدقة <span>واحتراف</span>
+    </div>
+    <p class="hero-desc">
+      منظومة متكاملة للمبيعات، المخزون، الحسابات، وخدمة تغيير الزيت —
+      كل شيء من مكان واحد.
+    </p>
+  </div>
+
+  <div class="hero-stats">
+    <div class="hero-stat">
+      <div class="hero-stat-val">14+</div>
+      <div class="hero-stat-lbl">وحدة إدارية</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-stat-val">PDF</div>
+      <div class="hero-stat-lbl">فواتير عربية</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-stat-val">5★</div>
+      <div class="hero-stat-lbl">تقييم العملاء</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── RIGHT FORM ── -->
+<div class="form-panel">
+  <div class="login-box">
+
+    <div class="form-brand">
+      <div class="form-brand-icon">
+        <i class="ti ti-droplet-filled-2"></i>
+      </div>
+      <div class="form-brand-text">
+        <span class="form-brand-runx">RUN<span class="x-part">X</span></span>
+        <div class="form-brand-sys">{{ APP_NAME }}</div>
+      </div>
+    </div>
+
+    <div class="login-heading">تسجيل الدخول</div>
+    <div class="login-sub">أدخل بياناتك للوصول إلى لوحة التحكم</div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+        <div class="flash flash-{{ category }}">
+          {% if category == 'danger' %}<i class="ti ti-alert-circle"></i>
+          {% elif category == 'success' %}<i class="ti ti-circle-check"></i>
+          {% else %}<i class="ti ti-alert-triangle"></i>{% endif %}
+          {{ message }}
+        </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('auth.login') }}" autocomplete="off">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+      <div class="fg">
+        <label class="fl" for="username">اسم المستخدم</label>
+        <div class="fi-wrap">
+          <i class="ti ti-user fi-icon"></i>
+          <input type="text" id="username" name="username" class="fi"
+                 placeholder="أدخل اسم المستخدم"
+                 value="{{ request.form.get('username','') }}"
+                 required autofocus/>
+        </div>
+      </div>
+
+      <div class="fg">
+        <label class="fl" for="password">كلمة المرور</label>
+        <div class="fi-wrap">
+          <i class="ti ti-lock fi-icon"></i>
+          <input type="password" id="password" name="password" class="fi"
+                 placeholder="••••••••" required/>
+        </div>
+      </div>
+
+      <div class="remember-row">
+        <input type="checkbox" id="remember" name="remember"/>
+        <label for="remember">تذكرني على هذا الجهاز</label>
+      </div>
+
+      <button type="submit" class="submit-btn">
+        <i class="ti ti-login"></i> دخول
+      </button>
+    </form>
+
+    <div class="login-footer">
+      <span class="lf-brand">RUNX</span> · {{ APP_NAME }} &copy; 2024
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+{% block title %}{{ supplier.name }} — {{ APP_NAME }}{% endblock %}
+{% block topbar_title %}ملف المورد{% endblock %}
+{% block topbar_crumb %}الموردون / {{ supplier.name }}{% endblock %}
+
+{% block page_header %}
+<div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;">
+  <div>
+    <h1 style="font-family:'Calistoga',serif;font-size:22px;">{{ supplier.name }}</h1>
+    <p style="font-size:12px;color:var(--muted-fg);margin-top:3px;">
+      {% if supplier.phone %}<span style="margin-left:10px;"><i class="ti ti-phone" style="font-size:11px;"></i> {{ supplier.phone }}</span>{% endif %}
+      {% if supplier.email %}<span><i class="ti ti-mail" style="font-size:11px;"></i> {{ supplier.email }}</span>{% endif %}
+    </p>
+  </div>
+  <div style="display:flex;gap:8px;">
+    {% if current_user.is_admin %}
+    <a href="{{ url_for('suppliers.edit', supplier_id=supplier.id) }}" class="btn btn-ghost">
+      <i class="ti ti-edit"></i> تعديل
+    </a>
+    <a href="{{ url_for('purchases.create') }}" class="btn btn-primary">
+      <i class="ti ti-plus"></i> فاتورة شراء
+    </a>
+    {% endif %}
+    <a href="{{ url_for('suppliers.index') }}" class="btn btn-ghost">
+      <i class="ti ti-arrow-right"></i> رجوع
+    </a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="display:grid;grid-template-columns:300px 1fr;gap:16px;">
+
+  <!-- LEFT -->
+  <div>
+    <!-- Info -->
+    <div class="card" style="padding:18px;margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:700;color:var(--muted-fg);margin-bottom:12px;">بيانات المورد</div>
+      <div style="display:flex;flex-direction:column;gap:9px;">
+        <div style="display:flex;justify-content:space-between;font-size:12px;">
+          <span style="color:var(--muted-fg);">الاسم</span>
+          <span style="font-weight:700;">{{ supplier.name }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;">
+          <span style="color:var(--muted-fg);">الهاتف</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;">{{ supplier.phone or '—' }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;">
+          <span style="color:var(--muted-fg);">البريد</span>
+          <span style="font-size:11px;color:var(--muted-fg);">{{ supplier.email or '—' }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;">
+          <span style="color:var(--muted-fg);">العنوان</span>
+          <span style="font-size:11px;color:var(--muted-fg);max-width:150px;text-align:left;">{{ supplier.address or '—' }}</span>
+        </div>
+        {% if supplier.notes %}
+        <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:2px;">
+          <div style="font-size:11px;color:var(--muted-fg);margin-bottom:4px;">ملاحظات</div>
+          <div style="font-size:12px;">{{ supplier.notes }}</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Balance -->
+    <div class="card" style="padding:18px;margin-bottom:14px;{% if supplier.balance > 0 %}border-color:rgba(180,83,9,.25);{% endif %}">
+      <div style="font-size:12px;font-weight:700;color:var(--muted-fg);margin-bottom:12px;">ملخص الحساب</div>
+      <div style="display:flex;flex-direction:column;gap:9px;">
+        <div style="display:flex;justify-content:space-between;font-size:12px;">
+          <span style="color:var(--muted-fg);">إجمالي الآجل</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--orange);">{{ "%.2f"|format(supplier.total_invoiced) }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;">
+          <span style="color:var(--muted-fg);">إجمالي المدفوع</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--green);">{{ "%.2f"|format(supplier.total_paid) }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;border-top:2px solid var(--border);padding-top:10px;margin-top:4px;">
+          <span style="font-size:14px;font-weight:800;">المستحق له</span>
+          {% if supplier.balance > 0 %}
+            <span style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:var(--orange);">{{ "%.2f"|format(supplier.balance) }}</span>
+          {% elif supplier.balance < 0 %}
+            <span style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:var(--green);">دائن {{ "%.2f"|format(supplier.balance|abs) }}</span>
+          {% else %}
+            <span class="b b-green">سوي ✓</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Payment Form -->
+    {% if supplier.balance > 0 and current_user.is_admin %}
+    <div class="card" style="padding:18px;border-color:rgba(180,83,9,.25);">
+      <div style="font-size:12px;font-weight:700;color:var(--orange);margin-bottom:12px;display:flex;align-items:center;gap:6px;">
+        <i class="ti ti-cash" style="font-size:14px;"></i> تسجيل دفعة للمورد
+      </div>
+      <form method="POST" action="{{ url_for('suppliers.add_payment', supplier_id=supplier.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <div class="fg-wrap">
+          <label class="fg-label">المبلغ <span style="color:var(--red)">*</span></label>
+          <div style="position:relative;">
+            <input type="number" name="amount" class="fg-input" step="0.01" min="0.01"
+                   max="{{ supplier.balance }}" placeholder="0.00" required/>
+            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted-fg);">ر.س</span>
+          </div>
+        </div>
+        <div class="fg-wrap">
+          <label class="fg-label">طريقة الدفع</label>
+          <select name="payment_method" class="fg-input">
+            <option value="cash">نقدي</option>
+            <option value="transfer">تحويل بنكي</option>
+            <option value="check">شيك</option>
+          </select>
+        </div>
+        <div class="fg-wrap">
+          <label class="fg-label">التاريخ</label>
+          <input type="date" name="payment_date" class="fg-input" id="payDate"/>
+        </div>
+        <div class="fg-wrap">
+          <label class="fg-label">ملاحظات</label>
+          <input type="text" name="notes" class="fg-input" placeholder="اختياري..."/>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;background:linear-gradient(135deg,#B45309,#D97706);box-shadow:0 4px 14px rgba(180,83,9,.2);">
+          <i class="ti ti-check"></i> تسجيل الدفعة
+        </button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- RIGHT -->
+  <div>
+    <!-- Ledger -->
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-h">
+        <span class="card-title"><i class="ti ti-book"></i> كشف الحساب</span>
+        {% if ledger %}<span class="b b-blue">{{ ledger|length }} حركة</span>{% endif %}
+      </div>
+      {% if ledger %}
+      <div class="tw">
+        <table>
+          <thead>
+            <tr>
+              <th>التاريخ</th><th>البيان</th><th>المرجع</th>
+              <th style="color:var(--orange);">مستحق</th>
+              <th style="color:var(--green);">مدفوع</th>
+              <th>الرصيد</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for entry in ledger %}
+            <tr style="{% if entry.type=='payment' %}background:rgba(13,124,90,.02);{% endif %}">
+              <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted-fg);">{{ entry.date.strftime('%Y-%m-%d') }}</td>
+              <td style="font-size:12px;">{{ entry.description }}</td>
+              <td>
+                {% if entry.type=='invoice' %}
+                <a href="{{ url_for('purchases.detail', purchase_id=entry.obj.id) }}"
+                   class="b b-orange" style="text-decoration:none;">{{ entry.ref }}</a>
+                {% else %}
+                <span class="b b-green">{{ entry.ref }}</span>
+                {% endif %}
+              </td>
+              <td style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:var(--orange);">
+                {% if entry.debit > 0 %}{{ "%.2f"|format(entry.debit) }}{% else %}<span style="color:var(--muted-fg);">—</span>{% endif %}
+              </td>
+              <td style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:var(--green);">
+                {% if entry.credit > 0 %}{{ "%.2f"|format(entry.credit) }}{% else %}<span style="color:var(--muted-fg);">—</span>{% endif %}
+              </td>
+              <td>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;
+                  {% if entry.running_balance > 0 %}color:var(--orange){% elif entry.running_balance < 0 %}color:var(--green){% else %}color:var(--muted-fg){% endif %}">
+                  {{ "%.2f"|format(entry.running_balance) }}
+                </span>
+              </td>
+              <td>
+                {% if entry.type=='payment' and current_user.is_admin %}
+                <form method="POST" action="{{ url_for('suppliers.delete_payment', payment_id=entry.obj.id) }}"
+                      onsubmit="return confirm('حذف هذه الدفعة؟')">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                  <button type="submit" class="btn btn-danger btn-sm"><i class="ti ti-trash"></i></button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr style="background:var(--muted);">
+              <td colspan="3" style="padding:9px 16px;font-size:12px;font-weight:700;">الإجمالي</td>
+              <td style="padding:9px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--orange);">{{ "%.2f"|format(supplier.total_invoiced) }}</td>
+              <td style="padding:9px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--green);">{{ "%.2f"|format(supplier.total_paid) }}</td>
+              <td style="padding:9px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;
+                {% if supplier.balance > 0 %}color:var(--orange){% else %}color:var(--green){% endif %}">
+                {{ "%.2f"|format(supplier.balance) }}
+              </td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty" style="padding:32px;">
+        <i class="ti ti-book-off"></i>
+        <p>لا توجد حركات مسجّلة لهذا المورد</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Recent Purchases -->
+    <div class="card">
+      <div class="card-h">
+        <span class="card-title"><i class="ti ti-shopping-cart"></i> آخر فواتير الشراء</span>
+        <a href="{{ url_for('purchases.index') }}" class="card-link">كل الفواتير</a>
+      </div>
+      {% if recent_purchases %}
+      <div class="tw">
+        <table>
+          <thead>
+            <tr><th>رقم الفاتورة</th><th>الإجمالي</th><th>الدفع</th><th>الحالة</th><th>التاريخ</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for p in recent_purchases %}
+            <tr style="{% if p.status=='cancelled' %}opacity:.5;{% endif %}">
+              <td>
+                <a href="{{ url_for('purchases.detail', purchase_id=p.id) }}"
+                   class="b b-orange" style="text-decoration:none;">{{ p.invoice_number[-8:] }}</a>
+              </td>
+              <td class="td-n">{{ "%.2f"|format(p.total) }}</td>
+              <td>
+                {% if p.payment_method=='cash' %}<span class="b b-green">نقدي</span>
+                {% elif p.payment_method=='credit' %}<span class="b b-orange">آجل</span>
+                {% else %}<span class="b b-blue">تحويل</span>{% endif %}
+              </td>
+              <td>
+                {% if p.status=='received' %}<span class="b b-green">مستلمة</span>
+                {% elif p.status=='cancelled' %}<span class="b b-muted">ملغاة</span>
+                {% else %}<span class="b b-blue">معلقة</span>{% endif %}
+              </td>
+              <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted-fg);">{{ p.purchase_date.strftime('%Y-%m-%d') }}</td>
+              <td><a href="{{ url_for('purchases.detail', purchase_id=p.id) }}" class="btn btn-ghost btn-sm"><i class="ti ti-eye"></i></a></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty" style="padding:28px;"><i class="ti ti-shopping-cart-off"></i><p>لا توجد فواتير شراء</p></div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('payDate').value = new Date().toISOString().split('T')[0];
+</script>
+{% endblock %}

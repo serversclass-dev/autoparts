@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+{% block title %}تقارير تغيير الزيت — {{ APP_NAME }}{% endblock %}
+{% block topbar_title %}تغيير الزيت{% endblock %}
+{% block topbar_crumb %}التقارير{% endblock %}
+
+{% block head %}
+<style>
+.report-stat{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:14px;padding:20px 22px;
+  display:flex;flex-direction:column;justify-content:space-between;
+}
+.report-stat-label{font-size:11px;color:var(--muted-fg);font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:5px;}
+.report-stat-value{font-family:'Calistoga',serif;font-size:32px;line-height:1;color:var(--fg);}
+.report-stat-value.accent{
+  background:var(--grad);-webkit-background-clip:text;
+  background-clip:text;color:transparent;
+}
+.report-stat-footer{font-size:11px;color:var(--muted-fg);margin-top:8px;}
+.bar-wrap{display:flex;flex-direction:column;gap:10px;}
+.bar-row{display:flex;align-items:center;gap:10px;}
+.bar-label{font-size:12px;font-weight:600;color:var(--fg);width:140px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bar-track{flex:1;background:var(--muted);border-radius:20px;height:10px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:20px;background:var(--grad);transition:width .6s ease;}
+.bar-val{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:var(--fg);width:60px;text-align:left;flex-shrink:0;}
+.tech-row{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 0;border-bottom:1px solid var(--border);
+}
+.tech-row:last-child{border-bottom:none;}
+.tech-av{
+  width:34px;height:34px;border-radius:50%;flex-shrink:0;
+  background:var(--grad);display:flex;align-items:center;
+  justify-content:center;font-weight:800;font-size:13px;color:#fff;
+}
+.tech-name{font-size:13px;font-weight:700;color:var(--fg);}
+.tech-meta{font-size:11px;color:var(--muted-fg);margin-top:1px;}
+.tech-stats{margin-right:auto;display:flex;gap:16px;text-align:center;}
+.tech-stat-val{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:var(--fg);}
+.tech-stat-lbl{font-size:10px;color:var(--muted-fg);}
+@media print{
+  .no-print{display:none!important;}
+  .card{box-shadow:none!important;}
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+  <div>
+    <h1 style="font-family:'Calistoga',serif;font-size:26px;color:var(--fg);margin-bottom:3px;">
+      تقارير تغيير الزيت
+    </h1>
+    <p style="font-size:13px;color:var(--muted-fg);">
+      إحصائيات شهر
+      {{ first_of_month.strftime('%B %Y') }}
+    </p>
+  </div>
+  <div style="display:flex;gap:8px;" class="no-print">
+    <button onclick="window.print()" class="btn btn-ghost">
+      <i class="ti ti-printer"></i> طباعة
+    </button>
+    <a href="{{ url_for('oil_service.index') }}" class="btn btn-ghost">
+      <i class="ti ti-arrow-right"></i> رجوع
+    </a>
+  </div>
+</div>
+
+<!-- Top Stats -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:20px;">
+
+  <div class="stat-hero">
+    <div class="stat-hero-label">إجمالي الإيرادات</div>
+    <div class="stat-hero-value">
+      {{ "%.0f"|format(month_revenue) }}
+      <span class="stat-hero-unit">{{ CURRENCY }}</span>
+    </div>
+    <div class="stat-hero-footer">
+      <i class="ti ti-calendar"></i>
+      {{ first_of_month.strftime('%Y/%m/%d') }} — اليوم
+    </div>
+  </div>
+
+  <div class="report-stat">
+    <div>
+      <div class="report-stat-label"><i class="ti ti-oil"></i> عدد العمليات</div>
+      <div class="report-stat-value accent">{{ month_count }}</div>
+    </div>
+    <div class="report-stat-footer">عملية مكتملة هذا الشهر</div>
+  </div>
+
+  <div class="report-stat">
+    <div>
+      <div class="report-stat-label"><i class="ti ti-tool"></i> إيرادات العمالة</div>
+      <div class="report-stat-value" style="color:var(--green);font-size:26px;">
+        {{ "%.2f"|format(month_labor) }}
+        <span style="font-size:13px;font-family:'Tajawal',sans-serif;color:var(--muted-fg);">{{ CURRENCY }}</span>
+      </div>
+    </div>
+    <div class="report-stat-footer">
+      {% if month_revenue > 0 %}
+        {{ "%.1f"|format(month_labor / month_revenue * 100) }}% من الإجمالي
+      {% else %}—{% endif %}
+    </div>
+  </div>
+
+  <div class="report-stat">
+    <div>
+      <div class="report-stat-label"><i class="ti ti-package"></i> مبيعات المنتجات</div>
+      <div class="report-stat-value" style="color:var(--acc);font-size:26px;">
+        {{ "%.2f"|format(month_parts) }}
+        <span style="font-size:13px;font-family:'Tajawal',sans-serif;color:var(--muted-fg);">{{ CURRENCY }}</span>
+      </div>
+    </div>
+    <div class="report-stat-footer">
+      {% if month_revenue > 0 %}
+        {{ "%.1f"|format(month_parts / month_revenue * 100) }}% من الإجمالي
+      {% else %}—{% endif %}
+    </div>
+  </div>
+
+  {% if month_count > 0 %}
+  <div class="report-stat">
+    <div>
+      <div class="report-stat-label"><i class="ti ti-chart-line"></i> متوسط قيمة العملية</div>
+      <div class="report-stat-value" style="font-size:26px;">
+        {{ "%.2f"|format(month_revenue / month_count) }}
+        <span style="font-size:13px;font-family:'Tajawal',sans-serif;color:var(--muted-fg);">{{ CURRENCY }}</span>
+      </div>
+    </div>
+    <div class="report-stat-footer">لكل عملية تغيير زيت</div>
+  </div>
+  {% endif %}
+
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+
+  <!-- Top Oils Chart -->
+  <div class="card">
+    <div class="card-h">
+      <span class="card-title"><i class="ti ti-droplet-filled-2"></i> أكثر الزيوت والمنتجات استخداماً</span>
+    </div>
+    <div style="padding:18px;">
+      {% if top_oils %}
+        {% set max_qty = top_oils[0][1] %}
+        <div class="bar-wrap">
+          {% for name, qty in top_oils %}
+          <div class="bar-row">
+            <div class="bar-label" title="{{ name }}">{{ name }}</div>
+            <div class="bar-track">
+              <div class="bar-fill"
+                   style="width:{{ (qty / max_qty * 100)|round(1) }}%;">
+              </div>
+            </div>
+            <div class="bar-val">
+              {{ "%.1f"|format(qty) }}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty" style="padding:32px;">
+          <i class="ti ti-droplet"></i>
+          <p>لا توجد بيانات هذا الشهر</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Revenue Breakdown -->
+  <div class="card">
+    <div class="card-h">
+      <span class="card-title"><i class="ti ti-chart-pie"></i> توزيع الإيرادات</span>
+    </div>
+    <div style="padding:18px;">
+      {% if month_revenue > 0 %}
+      <div style="display:flex;flex-direction:column;gap:14px;">
+
+        <!-- Parts -->
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+            <span style="font-size:12px;font-weight:600;color:var(--muted-fg);">
+              <i class="ti ti-package"></i> المنتجات
+            </span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;">
+              {{ "%.2f"|format(month_parts) }} {{ CURRENCY }}
+            </span>
+          </div>
+          <div style="background:var(--muted);border-radius:20px;height:12px;overflow:hidden;">
+            <div style="height:100%;border-radius:20px;background:var(--grad);width:{{ (month_parts/month_revenue*100)|round(1) }}%;"></div>
+          </div>
+          <div style="font-size:10px;color:var(--muted-fg);margin-top:3px;text-align:left;">
+            {{ "%.1f"|format(month_parts/month_revenue*100) }}%
+          </div>
+        </div>
+
+        <!-- Labor -->
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+            <span style="font-size:12px;font-weight:600;color:var(--muted-fg);">
+              <i class="ti ti-tool"></i> أجرة العمالة
+            </span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;">
+              {{ "%.2f"|format(month_labor) }} {{ CURRENCY }}
+            </span>
+          </div>
+          <div style="background:var(--muted);border-radius:20px;height:12px;overflow:hidden;">
+            <div style="height:100%;border-radius:20px;background:var(--green);width:{{ (month_labor/month_revenue*100)|round(1) }}%;"></div>
+          </div>
+          <div style="font-size:10px;color:var(--muted-fg);margin-top:3px;text-align:left;">
+            {{ "%.1f"|format(month_labor/month_revenue*100) }}%
+          </div>
+        </div>
+
+        <!-- Total bar -->
+        <div style="background:var(--muted);border-radius:12px;padding:14px;margin-top:4px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:13px;font-weight:700;color:var(--fg);">الإجمالي</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:var(--acc);">
+              {{ "%.2f"|format(month_revenue) }} {{ CURRENCY }}
+            </span>
+          </div>
+          <div style="font-size:11px;color:var(--muted-fg);margin-top:4px;">
+            {{ month_count }} عملية — متوسط
+            {% if month_count > 0 %}{{ "%.2f"|format(month_revenue/month_count) }}{% else %}0{% endif %}
+            {{ CURRENCY }} / عملية
+          </div>
+        </div>
+      </div>
+      {% else %}
+        <div class="empty" style="padding:32px;">
+          <i class="ti ti-chart-pie"></i>
+          <p>لا توجد إيرادات هذا الشهر</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Technicians -->
+  <div class="card" style="grid-column:1/-1;">
+    <div class="card-h">
+      <span class="card-title"><i class="ti ti-users"></i> أداء الفنيين هذا الشهر</span>
+    </div>
+    <div style="padding:18px;">
+      {% if tech_rows %}
+        {% set max_count = tech_rows|map(attribute='count')|max %}
+        <div>
+          <!-- Table header -->
+          <div style="display:grid;grid-template-columns:1fr auto auto auto;gap:12px;padding:6px 0;border-bottom:1px solid var(--border);margin-bottom:6px;">
+            <span style="font-size:11px;font-weight:600;color:var(--muted-fg);">الفني</span>
+            <span style="font-size:11px;font-weight:600;color:var(--muted-fg);text-align:center;">عدد العمليات</span>
+            <span style="font-size:11px;font-weight:600;color:var(--muted-fg);text-align:center;">إيرادات العمالة</span>
+            <span style="font-size:11px;font-weight:600;color:var(--muted-fg);text-align:center;">النسبة</span>
+          </div>
+          {% for row in tech_rows %}
+          <div class="tech-row" style="display:grid;grid-template-columns:1fr auto auto auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div class="tech-av">{{ row.name[0] if row.name else '؟' }}</div>
+              <div>
+                <div class="tech-name">{{ row.name }}</div>
+                <div style="margin-top:3px;">
+                  <div style="background:var(--muted);border-radius:20px;height:5px;width:120px;overflow:hidden;">
+                    <div style="height:100%;border-radius:20px;background:var(--grad);width:{{ (row.count/max_count*100)|round(1) }}%;"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:var(--fg);">{{ row.count }}</div>
+              <div style="font-size:10px;color:var(--muted-fg);">عملية</div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:var(--green);">{{ "%.2f"|format(row.labor) }}</div>
+              <div style="font-size:10px;color:var(--muted-fg);">{{ CURRENCY }}</div>
+            </div>
+            <div style="text-align:center;">
+              {% if month_count > 0 %}
+              <div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:var(--acc);">
+                {{ "%.1f"|format(row.count/month_count*100) }}%
+              </div>
+              {% else %}
+              <div style="color:var(--muted-fg);">—</div>
+              {% endif %}
+              <div style="font-size:10px;color:var(--muted-fg);">من الإجمالي</div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty" style="padding:32px;">
+          <i class="ti ti-users"></i>
+          <p>لا توجد بيانات فنيين هذا الشهر</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<!-- Quick Links -->
+<div style="display:flex;gap:10px;margin-top:16px;" class="no-print">
+  <a href="{{ url_for('oil_service.reminders') }}" class="btn btn-secondary">
+    <i class="ti ti-bell"></i> عرض التذكيرات
+  </a>
+  <a href="{{ url_for('oil_service.index') }}" class="btn btn-secondary">
+    <i class="ti ti-list"></i> كل العمليات
+  </a>
+  <a href="{{ url_for('oil_service.create') }}" class="btn btn-primary">
+    <i class="ti ti-plus"></i> تغيير زيت جديد
+  </a>
+</div>
+{% endblock %}

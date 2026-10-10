@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}{% if category %}تعديل تصنيف{% else %}تصنيف جديد{% endif %} — {{ APP_NAME }}{% endblock %}
+{% block topbar_title %}{% if category %}تعديل التصنيف{% else %}تصنيف جديد{% endif %}{% endblock %}
+{% block topbar_crumb %}التصنيفات{% endblock %}
+
+{% block page_header %}
+<div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;">
+  <div>
+    <h1 style="font-family:'Calistoga',serif;font-size:22px;">
+      {% if category %}تعديل: {{ category.name }}{% else %}إضافة تصنيف جديد{% endif %}
+    </h1>
+    <p style="font-size:12px;color:var(--muted-fg);margin-top:3px;">تنظيم المنتجات في تصنيفات واضحة</p>
+  </div>
+  <a href="{{ url_for('categories.index') }}" class="btn btn-ghost">
+    <i class="ti ti-arrow-right"></i> رجوع
+  </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="display:grid;grid-template-columns:1fr 300px;gap:16px;max-width:800px;">
+
+  <div class="card" style="padding:22px;">
+    <form method="POST"
+          action="{% if category %}{{ url_for('categories.edit', category_id=category.id) }}{% else %}{{ url_for('categories.create') }}{% endif %}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+      <div class="fg-wrap">
+        <label class="fg-label">اسم التصنيف <span style="color:var(--red)">*</span></label>
+        <input name="name" class="fg-input"
+               placeholder="مثال: زيوت المحرك"
+               value="{{ category.name if category else '' }}"
+               required autofocus/>
+        <div style="font-size:11px;color:var(--muted-fg);margin-top:4px;">يجب أن يكون الاسم فريداً وغير مكرر.</div>
+      </div>
+
+      <div class="fg-wrap">
+        <label class="fg-label">الوصف</label>
+        <textarea name="description" class="fg-input" rows="3"
+                  placeholder="وصف اختياري للتصنيف...">{{ category.description if category and category.description else '' }}</textarea>
+      </div>
+
+      {% if category %}
+      <div style="background:rgba(0,82,255,.04);border:1px solid rgba(0,82,255,.15);border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--acc);">
+        <i class="ti ti-info-circle" style="margin-left:5px;"></i>
+        هذا التصنيف يحتوي على <strong>{{ category.product_count }}</strong> منتج.
+      </div>
+      {% endif %}
+
+      <div style="display:flex;gap:10px;margin-top:6px;">
+        <button type="submit" class="btn btn-primary">
+          <i class="ti ti-device-floppy"></i>
+          {% if category %}حفظ التعديلات{% else %}إضافة التصنيف{% endif %}
+        </button>
+        <a href="{{ url_for('categories.index') }}" class="btn btn-ghost">إلغاء</a>
+      </div>
+
+    </form>
+  </div>
+
+  <!-- Suggestions -->
+  {% if not category %}
+  <div class="card" style="padding:18px;height:fit-content;">
+    <div style="font-size:12px;font-weight:700;color:var(--muted-fg);margin-bottom:10px;">تصنيفات مقترحة</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;">
+      {% for s in ['زيوت المحرك','فلاتر الزيت','فلاتر الهواء','فلاتر الوقود','بطاريات','سوائل','إكسسوارات','إطارات','قطع غيار','إضاءة'] %}
+      <button type="button" class="btn btn-ghost btn-sm"
+              onclick="document.querySelector('[name=name]').value='{{ s }}'">
+        {{ s }}
+      </button>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

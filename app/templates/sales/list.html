@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block title %}المبيعات — {{ APP_NAME }}{% endblock %}
+{% block topbar_title %}المبيعات{% endblock %}
+{% block topbar_crumb %}المعاملات / المبيعات{% endblock %}
+
+{% block page_header %}
+<div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;">
+  <div>
+    <h1 style="font-family:'Calistoga',serif;font-size:22px;">المبيعات</h1>
+    <p style="font-size:12px;color:var(--muted-fg);margin-top:3px;">{{ sales.total }} فاتورة مسجّلة</p>
+  </div>
+  <a href="{{ url_for('sales.pos') }}" class="btn btn-primary">
+    <i class="ti ti-plus"></i> فاتورة جديدة
+  </a>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<!-- Summary -->
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+  <div class="stat-hero" style="min-height:auto;padding:16px 20px;">
+    <div class="stat-hero-label">إجمالي المبيعات</div>
+    <div class="stat-hero-value" style="font-size:28px;">{{ "%.0f"|format(total_revenue) }} <span class="stat-hero-unit">{{ CURRENCY }}</span></div>
+  </div>
+  <div class="stat-side">
+    <div class="stat-side-label">إجمالي الأرباح</div>
+    <div class="stat-side-value" style="{% if total_profit < 0 %}color:var(--red){% else %}color:var(--green){% endif %}">
+      {{ "%.0f"|format(total_profit) }} <span style="font-size:12px;font-weight:400;color:var(--muted-fg)">{{ CURRENCY }}</span>
+    </div>
+  </div>
+  <div class="stat-side">
+    <div class="stat-side-label">متوسط الفاتورة</div>
+    <div class="stat-side-value">
+      {{ "%.0f"|format(total_revenue / sales.total if sales.total else 0) }}
+      <span style="font-size:12px;font-weight:400;color:var(--muted-fg)">{{ CURRENCY }}</span>
+    </div>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="card" style="margin-bottom:14px;">
+  <div style="padding:14px 18px;">
+    <form method="GET">
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+        <div style="flex:1;min-width:180px;">
+          <div class="fg-label">بحث</div>
+          <div style="position:relative;">
+            <i class="ti ti-search" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted-fg);font-size:15px;"></i>
+            <input name="search" class="fg-input" style="padding-right:34px;" placeholder="رقم الفاتورة أو اسم العميل..." value="{{ search }}"/>
+          </div>
+        </div>
+        <div style="min-width:130px;">
+          <div class="fg-label">من تاريخ</div>
+          <input type="date" name="date_from" class="fg-input" value="{{ date_from }}"/>
+        </div>
+        <div style="min-width:130px;">
+          <div class="fg-label">إلى تاريخ</div>
+          <input type="date" name="date_to" class="fg-input" value="{{ date_to }}"/>
+        </div>
+        <div style="min-width:120px;">
+          <div class="fg-label">الحالة</div>
+          <select name="status" class="fg-input">
+            <option value="">— الكل —</option>
+            <option value="completed" {% if status_filter=='completed' %}selected{% endif %}>مكتملة</option>
+            <option value="on_credit" {% if status_filter=='on_credit' %}selected{% endif %}>آجل</option>
+            <option value="cancelled" {% if status_filter=='cancelled' %}selected{% endif %}>ملغاة</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button type="submit" class="btn btn-primary"><i class="ti ti-filter"></i> فلترة</button>
+          <a href="{{ url_for('sales.index') }}" class="btn btn-ghost"><i class="ti ti-x"></i></a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Table -->
+<div class="card">
+  <div class="tw">
+    {% if sales.items %}
+    <table>
+      <thead>
+        <tr>
+          <th>رقم الفاتورة</th>
+          <th>العميل</th>
+          <th>الكاشير</th>
+          <th>المجموع</th>
+          <th>الخصم</th>
+          <th>الإجمالي</th>
+          <th>طريقة الدفع</th>
+          <th>الحالة</th>
+          <th>التاريخ</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for sale in sales.items %}
+        <tr style="{% if sale.status == 'cancelled' %}opacity:.5;{% endif %}">
+          <td>
+            <a href="{{ url_for('sales.detail', sale_id=sale.id) }}"
+               class="b b-blue" style="text-decoration:none;">
+              {{ sale.invoice_number }}
+            </a>
+          </td>
+          <td class="td-s">{{ sale.customer.name if sale.customer else '— نقدي —' }}</td>
+          <td class="td-m">{{ sale.cashier.full_name }}</td>
+          <td class="td-n td-m">{{ "%.2f"|format(sale.subtotal) }} {{ CURRENCY }}</td>
+          <td>
+            {% if sale.discount > 0 %}
+            <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--red);">
+              — {{ "%.2f"|format(sale.discount_amount) }} {{ CURRENCY }}
+            </span>
+            {% else %}<span class="td-m">—</span>{% endif %}
+          </td>
+          <td class="td-n">{{ "%.2f"|format(sale.total) }} {{ CURRENCY }}</td>
+          <td>
+            {% if sale.payment_method == 'cash' %}<span class="b b-green">نقدي</span>
+            {% elif sale.payment_method == 'credit' %}<span class="b b-orange">آجل</span>
+            {% else %}<span class="b b-blue">تحويل</span>{% endif %}
+          </td>
+          <td>
+            {% if sale.status == 'completed' %}<span class="b b-green">مكتملة</span>
+            {% elif sale.status == 'on_credit' %}<span class="b b-orange">آجل</span>
+            {% else %}<span class="b b-muted">ملغاة</span>{% endif %}
+          </td>
+          <td class="td-m" style="font-family:'JetBrains Mono',monospace;font-size:11px;">
+            {{ sale.created_at.strftime('%Y-%m-%d %H:%M') }}
+          </td>
+          <td>
+            <div style="display:flex;gap:5px;">
+              <a href="{{ url_for('sales.detail', sale_id=sale.id) }}" class="btn btn-ghost btn-sm"><i class="ti ti-eye"></i></a>
+              <a href="{{ url_for('sales.print_invoice', sale_id=sale.id) }}" target="_blank" class="btn btn-ghost btn-sm"><i class="ti ti-printer"></i></a>
+              <a href="{{ url_for('sales.pdf_invoice', sale_id=sale.id) }}" class="btn btn-ghost btn-sm"><i class="ti ti-file-type-pdf"></i></a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <!-- Pagination -->
+    {% if sales.pages > 1 %}
+    <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-size:12px;color:var(--muted-fg);">{{ sales.total }} فاتورة</span>
+      <div class="pagination">
+        {% if sales.has_prev %}
+        <a class="page-btn" href="?page={{ sales.prev_num }}&search={{ search }}&date_from={{ date_from }}&date_to={{ date_to }}&status={{ status_filter }}">
+          <i class="ti ti-chevron-right"></i>
+        </a>
+        {% endif %}
+        {% for p in sales.iter_pages(left_edge=1,right_edge=1,left_current=2,right_current=2) %}
+          {% if p %}
+          <a class="page-btn {% if p==sales.page %}active{% endif %}"
+             href="?page={{ p }}&search={{ search }}&date_from={{ date_from }}&date_to={{ date_to }}&status={{ status_filter }}">{{ p }}</a>
+          {% else %}
+          <span class="page-btn disabled">…</span>
+          {% endif %}
+        {% endfor %}
+        {% if sales.has_next %}
+        <a class="page-btn" href="?page={{ sales.next_num }}&search={{ search }}&date_from={{ date_from }}&date_to={{ date_to }}&status={{ status_filter }}">
+          <i class="ti ti-chevron-left"></i>
+        </a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty">
+      <i class="ti ti-receipt-off"></i>
+      <p>لا توجد فواتير مطابقة</p>
+      <a href="{{ url_for('sales.pos') }}" class="btn btn-primary" style="margin-top:12px;">
+        <i class="ti ti-plus"></i> إنشاء فاتورة جديدة
+      </a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

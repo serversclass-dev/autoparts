@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% block title %}تغيير الزيت — {{ APP_NAME }}{% endblock %}
+{% block topbar_title %}تغيير الزيت{% endblock %}
+{% block topbar_crumb %}تغيير الزيت{% endblock %}
+
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+  <div>
+    <h1 style="font-family:'Calistoga',serif;font-size:26px;color:var(--fg);margin-bottom:3px;">سجل تغيير الزيت</h1>
+    <p style="font-size:13px;color:var(--muted-fg);">جميع عمليات تغيير الزيت المسجّلة</p>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <a href="{{ url_for('oil_service.reminders') }}" class="btn btn-secondary">
+      <i class="ti ti-bell"></i> التذكيرات
+    </a>
+    <a href="{{ url_for('oil_service.reports') }}" class="btn btn-secondary">
+      <i class="ti ti-chart-bar"></i> التقارير
+    </a>
+    <a href="{{ url_for('oil_service.create') }}" class="btn btn-primary">
+      <i class="ti ti-plus"></i> تغيير زيت جديد
+    </a>
+  </div>
+</div>
+
+<!-- Stats -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px;">
+  <div class="stat-hero">
+    <div class="stat-hero-label">إجمالي الإيرادات</div>
+    <div class="stat-hero-value">{{ "%.2f"|format(total_revenue) }}<span class="stat-hero-unit"> {{ CURRENCY }}</span></div>
+    <div class="stat-hero-footer"><i class="ti ti-trending-up"></i> العمليات المكتملة</div>
+  </div>
+  <div class="stat-side">
+    <div>
+      <div class="stat-side-label">عدد العمليات</div>
+      <div class="stat-side-value">{{ total_count }}</div>
+    </div>
+    <div class="stat-side-footer">عملية مكتملة</div>
+  </div>
+  <div class="stat-side stat-side-alert">
+    <div>
+      <div class="stat-side-label">عمليات الصفحة</div>
+      <div class="stat-side-value">{{ services.items|length }}</div>
+    </div>
+    <div class="stat-side-footer">من أصل {{ services.total }}</div>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-h">
+    <span class="card-title"><i class="ti ti-filter"></i> البحث والتصفية</span>
+  </div>
+  <div style="padding:14px 18px;">
+    <form method="get" style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px;align-items:end;">
+      <div class="fg-wrap" style="margin:0;">
+        <label class="fg-label">بحث</label>
+        <input class="fg-input" name="search" value="{{ search }}" placeholder="اسم العميل، رقم اللوحة، الهاتف..."/>
+      </div>
+      <div class="fg-wrap" style="margin:0;">
+        <label class="fg-label">من تاريخ</label>
+        <input class="fg-input" type="date" name="date_from" value="{{ date_from }}"/>
+      </div>
+      <div class="fg-wrap" style="margin:0;">
+        <label class="fg-label">إلى تاريخ</label>
+        <input class="fg-input" type="date" name="date_to" value="{{ date_to }}"/>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button type="submit" class="btn btn-primary"><i class="ti ti-search"></i></button>
+        <a href="{{ url_for('oil_service.index') }}" class="btn btn-ghost"><i class="ti ti-x"></i></a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Table -->
+<div class="card">
+  <div class="tw">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>التاريخ</th>
+          <th>العميل</th>
+          <th>السيارة</th>
+          <th>العداد</th>
+          <th>المنتجات</th>
+          <th>أجرة العمالة</th>
+          <th>الإجمالي</th>
+          <th>الدفع</th>
+          <th>الحالة</th>
+          <th>التغيير القادم</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for svc in services.items %}
+        <tr>
+          <td class="td-n">{{ svc.id }}</td>
+          <td class="td-m">{{ svc.service_date.strftime('%Y/%m/%d') }}</td>
+          <td class="td-s">
+            <div>{{ svc.customer.name }}</div>
+            {% if svc.customer.phone %}
+            <div style="font-size:11px;color:var(--muted-fg);">{{ svc.customer.phone }}</div>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{{ url_for('oil_service.vehicle_history', vehicle_id=svc.vehicle_id) }}"
+               style="font-weight:700;color:var(--acc);text-decoration:none;">
+              {{ svc.vehicle.plate }}
+            </a>
+            {% if svc.vehicle.car_type %}
+            <div style="font-size:11px;color:var(--muted-fg);">{{ svc.vehicle.car_type }}{% if svc.vehicle.car_model %} — {{ svc.vehicle.car_model }}{% endif %}</div>
+            {% endif %}
+          </td>
+          <td class="td-n">{{ "%.0f"|format(svc.odometer) }} كم</td>
+          <td class="td-m">{{ svc.oil_type }}</td>
+          <td class="td-n">{{ "%.2f"|format(svc.labor_cost) }}</td>
+          <td class="td-n" style="font-weight:700;color:var(--fg);">{{ "%.2f"|format(svc.total) }} {{ CURRENCY }}</td>
+          <td>
+            {% if svc.payment_method == 'cash' %}
+              <span class="b b-green">نقدي</span>
+            {% elif svc.payment_method == 'credit' %}
+              <span class="b b-orange">آجل</span>
+            {% else %}
+              <span class="b b-blue">تحويل</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if svc.status == 'completed' %}
+              <span class="b b-green"><i class="ti ti-check"></i> مكتملة</span>
+            {% else %}
+              <span class="b b-red"><i class="ti ti-x"></i> ملغاة</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if svc.next_date %}
+              {% if svc.is_overdue %}
+                <span class="b b-red"><i class="ti ti-alert-triangle"></i> متأخر</span>
+              {% elif svc.days_until_next is not none and svc.days_until_next <= 14 %}
+                <span class="b b-orange">{{ svc.days_until_next }} يوم</span>
+              {% else %}
+                <span style="font-size:11px;color:var(--muted-fg);">{{ svc.next_date.strftime('%Y/%m/%d') }}</span>
+              {% endif %}
+            {% else %}
+              <span class="td-m">—</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{{ url_for('oil_service.detail', service_id=svc.id) }}" class="btn btn-ghost btn-sm">
+              <i class="ti ti-eye"></i>
+            </a>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="12">
+            <div class="empty">
+              <i class="ti ti-oil"></i>
+              <p>لا توجد عمليات تغيير زيت مسجّلة</p>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if services.pages > 1 %}
+  <div style="padding:12px 18px;border-top:1px solid var(--border);">
+    <div class="pagination">
+      {% if services.has_prev %}
+      <a class="page-btn" href="{{ url_for('oil_service.index', page=services.prev_num, search=search, date_from=date_from, date_to=date_to) }}">
+        <i class="ti ti-chevron-right"></i>
+      </a>
+      {% else %}
+      <span class="page-btn disabled"><i class="ti ti-chevron-right"></i></span>
+      {% endif %}
+
+      {% for p in services.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+        {% if p %}
+          <a class="page-btn {% if p == services.page %}active{% endif %}"
+             href="{{ url_for('oil_service.index', page=p, search=search, date_from=date_from, date_to=date_to) }}">{{ p }}</a>
+        {% else %}
+          <span class="page-btn disabled">…</span>
+        {% endif %}
+      {% endfor %}
+
+      {% if services.has_next %}
+      <a class="page-btn" href="{{ url_for('oil_service.index', page=services.next_num, search=search, date_from=date_from, date_to=date_to) }}">
+        <i class="ti ti-chevron-left"></i>
+      </a>
+      {% else %}
+      <span class="page-btn disabled"><i class="ti ti-chevron-left"></i></span>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

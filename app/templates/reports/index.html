@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}التقارير — {{ APP_NAME }}{% endblock %}
+{% block topbar_title %}التقارير{% endblock %}
+{% block topbar_crumb %}التحليل / التقارير{% endblock %}
+
+{% block page_header %}
+<div style="padding:20px 24px 0;">
+  <h1 style="font-family:'Calistoga',serif;font-size:22px;">التقارير والإحصائيات</h1>
+  <p style="font-size:12px;color:var(--muted-fg);margin-top:3px;">تحليل شامل لأداء المحل — للمدير فقط</p>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<!-- Report Cards -->
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;">
+
+  <div class="card" style="padding:22px;cursor:pointer;transition:border-color .15s,transform .15s;"
+       onmouseover="this.style.borderColor='var(--acc)';this.style.transform='translateY(-2px)'"
+       onmouseout="this.style.borderColor='var(--border)';this.style.transform=''"
+       onclick="location.href='{{ url_for('reports.sales', type='daily') }}'">
+    <div style="width:44px;height:44px;border-radius:10px;background:var(--grad);display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;margin-bottom:14px;box-shadow:var(--sh-acc);">
+      <i class="ti ti-receipt"></i>
+    </div>
+    <div style="font-size:14px;font-weight:800;color:var(--fg);margin-bottom:6px;">تقرير المبيعات</div>
+    <div style="font-size:12px;color:var(--muted-fg);margin-bottom:14px;">مبيعات يومية وشهرية وحسب الكاشير. تستبعد الفواتير الملغاة.</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <a href="{{ url_for('reports.sales', type='daily') }}" class="btn btn-primary btn-sm"
+         onclick="event.stopPropagation()"><i class="ti ti-calendar-day"></i> يومي</a>
+      <a href="{{ url_for('reports.sales', type='monthly') }}" class="btn btn-ghost btn-sm"
+         onclick="event.stopPropagation()"><i class="ti ti-calendar-month"></i> شهري</a>
+      <a href="{{ url_for('reports.sales', type='cashier') }}" class="btn btn-ghost btn-sm"
+         onclick="event.stopPropagation()"><i class="ti ti-user"></i> كاشير</a>
+    </div>
+  </div>
+
+  <div class="card" style="padding:22px;cursor:pointer;transition:border-color .15s,transform .15s;"
+       onmouseover="this.style.borderColor='var(--green)';this.style.transform='translateY(-2px)'"
+       onmouseout="this.style.borderColor='var(--border)';this.style.transform=''"
+       onclick="location.href='{{ url_for('reports.profit') }}'">
+    <div style="width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#0F7B5A,#16A37A);display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;margin-bottom:14px;box-shadow:0 4px 14px rgba(13,124,90,.2);">
+      <i class="ti ti-trending-up"></i>
+    </div>
+    <div style="font-size:14px;font-weight:800;color:var(--fg);margin-bottom:6px;">تقرير الأرباح</div>
+    <div style="font-size:12px;color:var(--muted-fg);margin-bottom:14px;">الربح الإجمالي والصافي بعد المصروفات. ربح كل منتج وتصنيف.</div>
+    <a href="{{ url_for('reports.profit') }}" class="btn btn-sm" style="background:var(--green-bg);color:var(--green);border:1px solid rgba(13,124,90,.2);"
+       onclick="event.stopPropagation()"><i class="ti ti-chart-line"></i> عرض التقرير</a>
+  </div>
+
+  <div class="card" style="padding:22px;cursor:pointer;transition:border-color .15s,transform .15s;"
+       onmouseover="this.style.borderColor='var(--orange)';this.style.transform='translateY(-2px)'"
+       onmouseout="this.style.borderColor='var(--border)';this.style.transform=''"
+       onclick="location.href='{{ url_for('reports.products') }}'">
+    <div style="width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#B45309,#D97706);display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;margin-bottom:14px;box-shadow:0 4px 14px rgba(180,83,9,.2);">
+      <i class="ti ti-package"></i>
+    </div>
+    <div style="font-size:14px;font-weight:800;color:var(--fg);margin-bottom:6px;">تقرير الأصناف</div>
+    <div style="font-size:12px;color:var(--muted-fg);margin-bottom:14px;">الأكثر مبيعاً، الأصناف الراكدة، النواقص مع الكمية المقترحة.</div>
+    <a href="{{ url_for('reports.products') }}" class="btn btn-sm" style="background:var(--orange-bg);color:var(--orange);border:1px solid rgba(180,83,9,.2);"
+       onclick="event.stopPropagation()"><i class="ti ti-chart-bar"></i> عرض التقرير</a>
+  </div>
+
+  <div class="card" style="padding:22px;cursor:pointer;transition:border-color .15s,transform .15s;"
+       onmouseover="this.style.borderColor='var(--red)';this.style.transform='translateY(-2px)'"
+       onmouseout="this.style.borderColor='var(--border)';this.style.transform=''"
+       onclick="location.href='{{ url_for('reports.accounts') }}'">
+    <div style="width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#C0392B,#E74C3C);display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;margin-bottom:14px;box-shadow:0 4px 14px rgba(192,57,43,.2);">
+      <i class="ti ti-scale"></i>
+    </div>
+    <div style="font-size:14px;font-weight:800;color:var(--fg);margin-bottom:6px;">تقرير الحسابات</div>
+    <div style="font-size:12px;color:var(--muted-fg);margin-bottom:14px;">مديونيات العملاء، مستحقات الموردين، قيمة المخزون.</div>
+    <a href="{{ url_for('reports.accounts') }}" class="btn btn-sm" style="background:var(--red-bg);color:var(--red);border:1px solid rgba(192,57,43,.2);"
+       onclick="event.stopPropagation()"><i class="ti ti-report-money"></i> عرض التقرير</a>
+  </div>
+
+  <div class="card" style="padding:22px;cursor:pointer;transition:border-color .15s,transform .15s;"
+       onmouseover="this.style.borderColor='var(--green)';this.style.transform='translateY(-2px)'"
+       onmouseout="this.style.borderColor='var(--border)';this.style.transform=''"
+       onclick="location.href='{{ url_for('reports.sales_export_excel') }}'">
+    <div style="width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#0F7B5A,#16A37A);display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;margin-bottom:14px;">
+      <i class="ti ti-file-spreadsheet"></i>
+    </div>
+    <div style="font-size:14px;font-weight:800;color:var(--fg);margin-bottom:6px;">تصدير Excel</div>
+    <div style="font-size:12px;color:var(--muted-fg);margin-bottom:14px;">تصدير بيانات المبيعات والمصروفات لملف Excel قابل للتعديل.</div>
+    <a href="{{ url_for('reports.sales_export_excel') }}" class="btn btn-sm" style="background:var(--green-bg);color:var(--green);border:1px solid rgba(13,124,90,.2);"
+       onclick="event.stopPropagation()"><i class="ti ti-download"></i> تحميل Excel</a>
+  </div>
+
+  <div class="card" style="padding:22px;background:var(--fg);">
+    <div style="width:44px;height:44px;border-radius:10px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;margin-bottom:14px;">
+      <i class="ti ti-bolt"></i>
+    </div>
+    <div style="font-size:14px;font-weight:800;color:#fff;margin-bottom:6px;">روابط سريعة</div>
+    <div style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:14px;">اختصارات للعمليات الأكثر استخداماً.</div>
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      <a href="{{ url_for('sales.pos') }}" style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,.6);text-decoration:none;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.08);transition:color .12s;"
+         onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,.6)'">
+        <i class="ti ti-point-of-sale"></i> نقطة البيع
+      </a>
+      <a href="{{ url_for('products.index', stock='low') }}" style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,.6);text-decoration:none;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.08);transition:color .12s;"
+         onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,.6)'">
+        <i class="ti ti-alert-triangle"></i> النواقص
+      </a>
+      <a href="{{ url_for('customers.index', debt_only=1) }}" style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,.6);text-decoration:none;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.08);transition:color .12s;"
+         onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,.6)'">
+        <i class="ti ti-users"></i> المدينون
+      </a>
+      <a href="{{ url_for('expenses.index') }}" style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,.6);text-decoration:none;padding:6px 0;transition:color .12s;"
+         onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,.6)'">
+        <i class="ti ti-wallet"></i> المصروفات
+      </a>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,551 @@
+{% extends "base.html" %}
+{% block title %}تغيير زيت جديد — {{ APP_NAME }}{% endblock %}
+{% block topbar_title %}تغيير الزيت{% endblock %}
+{% block topbar_crumb %}تغيير زيت جديد{% endblock %}
+
+{% block head %}
+<style>
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.form-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+.section-title{
+  font-size:12px;font-weight:800;color:var(--muted-fg);
+  text-transform:uppercase;letter-spacing:.06em;
+  margin-bottom:12px;padding-bottom:8px;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:6px;
+}
+.section-title i{font-size:15px;color:var(--acc);}
+.items-table{width:100%;border-collapse:collapse;margin-top:8px;}
+.items-table th{
+  font-size:11px;font-weight:600;color:var(--muted-fg);
+  padding:7px 10px;background:var(--muted);border-bottom:1px solid var(--border);
+  text-align:right;
+}
+.items-table td{padding:7px 6px;border-bottom:1px solid var(--border);vertical-align:middle;}
+.items-table tbody tr:last-child td{border-bottom:none;}
+.item-input{
+  width:100%;border:1px solid var(--border-s);border-radius:7px;
+  padding:7px 10px;font-size:13px;font-family:'Tajawal',sans-serif;
+  color:var(--fg);background:var(--card);outline:none;
+  transition:border-color .15s,box-shadow .15s;
+}
+.item-input:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(0,82,255,.1);}
+.remove-row{
+  width:28px;height:28px;border-radius:7px;border:none;
+  background:var(--red-bg);color:var(--red);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:14px;
+  transition:background .12s;flex-shrink:0;
+}
+.remove-row:hover{background:#fee2e2;}
+.total-row{
+  background:var(--muted);border-radius:10px;
+  padding:14px 18px;display:flex;flex-direction:column;gap:7px;
+}
+.total-line{display:flex;justify-content:space-between;align-items:center;font-size:13px;}
+.total-line .label{color:var(--muted-fg);}
+.total-line .val{font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--fg);}
+.total-line.grand{border-top:1px solid var(--border-s);padding-top:7px;margin-top:3px;}
+.total-line.grand .label{font-size:14px;font-weight:700;color:var(--fg);}
+.total-line.grand .val{font-size:18px;color:var(--acc);}
+.toggle-new{
+  font-size:12px;font-weight:600;color:var(--acc);cursor:pointer;
+  background:none;border:none;padding:0;text-decoration:underline;
+  font-family:'Tajawal',sans-serif;
+}
+.new-block{
+  background:rgba(0,82,255,.03);border:1px dashed rgba(0,82,255,.25);
+  border-radius:10px;padding:14px;margin-top:10px;
+}
+@media(max-width:768px){
+  .form-grid,.form-grid-3{grid-template-columns:1fr;}
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+  <div>
+    <h1 style="font-family:'Calistoga',serif;font-size:26px;color:var(--fg);margin-bottom:3px;">تغيير زيت جديد</h1>
+    <p style="font-size:13px;color:var(--muted-fg);">تسجيل عملية تغيير زيت وإنشاء فاتورة تلقائياً</p>
+  </div>
+  <a href="{{ url_for('oil_service.index') }}" class="btn btn-ghost">
+    <i class="ti ti-arrow-right"></i> رجوع
+  </a>
+</div>
+
+<form method="POST" id="oilForm">
+  <div style="display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start;">
+
+    <!-- ── RIGHT COLUMN ── -->
+    <div style="display:flex;flex-direction:column;gap:16px;">
+
+      <!-- Customer -->
+      <div class="card">
+        <div class="card-h">
+          <span class="card-title"><i class="ti ti-user"></i> بيانات العميل</span>
+        </div>
+        <div style="padding:18px;">
+          <div class="section-title"><i class="ti ti-search"></i> اختر عميلاً موجوداً</div>
+          <div class="fg-wrap">
+            <label class="fg-label">العميل</label>
+            <select class="fg-input" name="customer_id" id="customerSelect" onchange="loadVehicles(this.value)">
+              <option value="">— اختر العميل —</option>
+              {% for c in customers %}
+              <option value="{{ c.id }}">{{ c.name }}{% if c.phone %} — {{ c.phone }}{% endif %}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div style="text-align:center;margin:10px 0;font-size:12px;color:var(--muted-fg);">— أو —</div>
+
+          <button type="button" class="toggle-new" onclick="toggleNewCustomer()">
+            <i class="ti ti-user-plus"></i> إضافة عميل جديد
+          </button>
+          <div class="new-block" id="newCustomerBlock" style="display:none;">
+            <div class="section-title"><i class="ti ti-user-plus"></i> عميل جديد</div>
+            <div class="form-grid">
+              <div class="fg-wrap" style="margin:0;">
+                <label class="fg-label">الاسم <span style="color:var(--red)">*</span></label>
+                <input class="fg-input" name="new_customer_name" placeholder="اسم العميل"/>
+              </div>
+              <div class="fg-wrap" style="margin:0;">
+                <label class="fg-label">رقم الجوال</label>
+                <input class="fg-input" name="new_customer_phone" placeholder="09xxxxxxxx"/>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vehicle -->
+      <div class="card">
+        <div class="card-h">
+          <span class="card-title"><i class="ti ti-car"></i> بيانات السيارة</span>
+        </div>
+        <div style="padding:18px;">
+          <div id="vehicleSelectWrap" style="display:none;">
+            <div class="section-title"><i class="ti ti-car"></i> اختر سيارة مسجّلة</div>
+            <div class="fg-wrap">
+              <label class="fg-label">السيارة</label>
+              <select class="fg-input" name="vehicle_id" id="vehicleSelect" onchange="fillVehicleInfo(this)">
+                <option value="">— اختر سيارة أو أضف جديدة —</option>
+              </select>
+            </div>
+            <div style="text-align:center;margin:8px 0;font-size:12px;color:var(--muted-fg);">— أو —</div>
+            <button type="button" class="toggle-new" onclick="toggleNewVehicle()">
+              <i class="ti ti-plus"></i> إضافة سيارة جديدة
+            </button>
+          </div>
+
+          <div class="new-block" id="newVehicleBlock" style="margin-top:10px;">
+            <div class="section-title"><i class="ti ti-license-plate"></i> بيانات السيارة</div>
+            <div class="form-grid-3">
+              <div class="fg-wrap" style="margin:0;">
+                <label class="fg-label">رقم اللوحة</label>
+                <input class="fg-input" name="plate" id="plateInput" placeholder="أ ب ج 1234"/>
+              </div>
+              <div class="fg-wrap" style="margin:0;">
+                <label class="fg-label">نوع السيارة</label>
+                <input class="fg-input" name="car_type" id="carTypeInput" placeholder="تويوتا، هوندا..."/>
+              </div>
+              <div class="fg-wrap" style="margin:0;">
+                <label class="fg-label">الموديل</label>
+                <input class="fg-input" name="car_model" id="carModelInput" placeholder="كامري 2022"/>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top:14px;">
+            <div class="form-grid">
+              <div class="fg-wrap" style="margin:0;">
+                <label class="fg-label">قراءة العداد (كم) <span style="color:var(--red)">*</span></label>
+                <input class="fg-input" type="number" step="0.1" min="0" name="odometer"
+                       id="odometerInput" placeholder="مثال: 45000" required onchange="calcTotals()"/>
+              </div>
+              <div class="fg-wrap" style="margin:0;">
+                <label class="fg-label">تاريخ الخدمة</label>
+                <input class="fg-input" type="date" name="service_date" id="serviceDateInput"
+                       value="{{ now.strftime('%Y-%m-%d') if now is defined else '' }}"/>
+              </div>
+            </div>
+            <div id="odometerWarn" class="strip" style="display:none;margin-top:10px;">
+              <i class="ti ti-alert-triangle"></i>
+              <span id="odometerWarnMsg"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Products -->
+      <div class="card">
+        <div class="card-h">
+          <span class="card-title"><i class="ti ti-droplet-filled-2"></i> المنتجات المستخدمة</span>
+          <button type="button" class="btn btn-primary btn-sm" onclick="addItem()">
+            <i class="ti ti-plus"></i> إضافة منتج
+          </button>
+        </div>
+        <div style="padding:18px;">
+          <div class="tw">
+            <table class="items-table">
+              <thead>
+                <tr>
+                  <th style="width:40%;">المنتج</th>
+                  <th style="width:15%;">الكمية</th>
+                  <th style="width:20%;">سعر الوحدة</th>
+                  <th style="width:20%;">الإجمالي</th>
+                  <th style="width:5%;"></th>
+                </tr>
+              </thead>
+              <tbody id="itemsBody">
+              </tbody>
+            </table>
+          </div>
+          <div id="noItemsMsg" style="text-align:center;padding:24px;color:var(--muted-fg);font-size:13px;">
+            <i class="ti ti-droplet" style="font-size:28px;opacity:.3;display:block;margin-bottom:8px;"></i>
+            اضغط "إضافة منتج" لإضافة زيوت أو قطع
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── LEFT COLUMN ── -->
+    <div style="display:flex;flex-direction:column;gap:16px;">
+
+      <!-- Service Details -->
+      <div class="card">
+        <div class="card-h">
+          <span class="card-title"><i class="ti ti-settings"></i> تفاصيل الخدمة</span>
+        </div>
+        <div style="padding:18px;display:flex;flex-direction:column;gap:12px;">
+
+          <div class="fg-wrap" style="margin:0;">
+            <label class="fg-label">أجرة العمالة ({{ CURRENCY }})</label>
+            <input class="fg-input" type="number" step="0.01" min="0" name="labor_cost"
+                   id="laborCost" value="0" placeholder="0.00" onchange="calcTotals()"/>
+          </div>
+
+          <div class="fg-wrap" style="margin:0;">
+            <label class="fg-label">طريقة الدفع</label>
+            <select class="fg-input" name="payment_method" id="paymentMethod">
+              <option value="cash">💵 نقدي</option>
+              <option value="credit">📋 آجل</option>
+              <option value="transfer">🏦 تحويل بنكي</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="fg-label">الخصم</label>
+            <div style="display:flex;gap:6px;">
+              <input class="fg-input" type="number" step="0.01" min="0" name="discount"
+                     id="discountVal" value="0" placeholder="0" onchange="calcTotals()"
+                     style="flex:1;"/>
+              <select class="fg-input" name="discount_type" id="discountType"
+                      onchange="calcTotals()" style="width:90px;">
+                <option value="amount">{{ CURRENCY }}</option>
+                <option value="percent">%</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="fg-wrap" style="margin:0;">
+            <label class="fg-label">ملاحظات</label>
+            <textarea class="fg-input" name="notes" rows="3"
+                      placeholder="ملاحظات إضافية..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Next Service -->
+      <div class="card">
+        <div class="card-h">
+          <span class="card-title"><i class="ti ti-calendar-event"></i> موعد التغيير القادم</span>
+        </div>
+        <div style="padding:18px;display:flex;flex-direction:column;gap:12px;">
+          <div class="fg-wrap" style="margin:0;">
+            <label class="fg-label">المسافة حتى التغيير (كم)</label>
+            <input class="fg-input" type="number" step="500" min="1000" name="next_km_interval"
+                   value="5000" placeholder="5000"/>
+          </div>
+          <div class="fg-wrap" style="margin:0;">
+            <label class="fg-label">المدة حتى التغيير (أشهر)</label>
+            <input class="fg-input" type="number" min="1" max="24" name="next_months"
+                   placeholder="مثال: 3"/>
+          </div>
+          <div class="strip" style="margin:0;">
+            <i class="ti ti-info-circle"></i>
+            <span style="font-size:12px;">سيتم احتساب موعد التغيير القادم تلقائياً بناءً على هذه البيانات.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Totals -->
+      <div class="card">
+        <div class="card-h">
+          <span class="card-title"><i class="ti ti-receipt"></i> ملخص الفاتورة</span>
+        </div>
+        <div style="padding:18px;">
+          <div class="total-row">
+            <div class="total-line">
+              <span class="label">المنتجات</span>
+              <span class="val" id="sumParts">0.00 {{ CURRENCY }}</span>
+            </div>
+            <div class="total-line">
+              <span class="label">أجرة العمالة</span>
+              <span class="val" id="sumLabor">0.00 {{ CURRENCY }}</span>
+            </div>
+            <div class="total-line">
+              <span class="label">المجموع قبل الخصم</span>
+              <span class="val" id="sumSubtotal">0.00 {{ CURRENCY }}</span>
+            </div>
+            <div class="total-line">
+              <span class="label">الخصم</span>
+              <span class="val" id="sumDiscount" style="color:var(--red);">0.00 {{ CURRENCY }}</span>
+            </div>
+            <div class="total-line grand">
+              <span class="label">الإجمالي</span>
+              <span class="val" id="sumTotal">0.00 {{ CURRENCY }}</span>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="width:100%;margin-top:14px;justify-content:center;font-size:15px;padding:12px;">
+            <i class="ti ti-device-floppy"></i> حفظ وإنشاء الفاتورة
+          </button>
+          <a href="{{ url_for('oil_service.index') }}" class="btn btn-ghost"
+             style="width:100%;justify-content:center;margin-top:8px;">
+            إلغاء
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CURRENCY = "{{ CURRENCY }}";
+
+// ── Products data ─────────────────────────────────────────────────────────────
+const PRODUCTS = [
+  {% for p in products %}
+  { id: {{ p.id }}, name: {{ p.name|tojson }}, price: {{ p.sale_price }}, stock: {{ p.quantity }}, unit: {{ p.unit|tojson }} },
+  {% endfor %}
+];
+
+// ── Set today's date ──────────────────────────────────────────────────────────
+(function(){
+  const el = document.getElementById('serviceDateInput');
+  if (el && !el.value) {
+    const n = new Date();
+    el.value = n.getFullYear() + '-' +
+      String(n.getMonth()+1).padStart(2,'0') + '-' +
+      String(n.getDate()).padStart(2,'0');
+  }
+})();
+
+// ── Toggle new customer block ──────────────────────────────────────────────────
+function toggleNewCustomer() {
+  const b = document.getElementById('newCustomerBlock');
+  const cs = document.getElementById('customerSelect');
+  const shown = b.style.display !== 'none';
+  b.style.display = shown ? 'none' : 'block';
+  cs.disabled = !shown;
+  if (!shown) { cs.value = ''; loadVehicles(''); }
+}
+
+// ── Load vehicles via AJAX ─────────────────────────────────────────────────────
+function loadVehicles(customerId) {
+  const wrap = document.getElementById('vehicleSelectWrap');
+  const sel = document.getElementById('vehicleSelect');
+  const nvb = document.getElementById('newVehicleBlock');
+
+  if (!customerId) {
+    wrap.style.display = 'none';
+    nvb.style.display = 'block';
+    clearVehicleInputs();
+    return;
+  }
+
+  fetch(`/oil-service/ajax/vehicles?customer_id=${customerId}`)
+    .then(r => r.json())
+    .then(data => {
+      sel.innerHTML = '<option value="">— اختر سيارة أو أضف جديدة —</option>';
+      data.forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v.id;
+        opt.textContent = v.display;
+        opt.dataset.plate = v.plate;
+        opt.dataset.carType = v.car_type;
+        opt.dataset.carModel = v.car_model;
+        opt.dataset.lastOdometer = v.last_odometer || '';
+        sel.appendChild(opt);
+      });
+      wrap.style.display = data.length > 0 ? 'block' : 'none';
+      nvb.style.display = data.length > 0 ? 'none' : 'block';
+      clearVehicleInputs();
+    })
+    .catch(() => {
+      wrap.style.display = 'none';
+      nvb.style.display = 'block';
+    });
+}
+
+function fillVehicleInfo(sel) {
+  const opt = sel.options[sel.selectedIndex];
+  const nvb = document.getElementById('newVehicleBlock');
+  if (!opt.value) {
+    nvb.style.display = 'block';
+    clearVehicleInputs();
+    return;
+  }
+  nvb.style.display = 'block';
+  document.getElementById('plateInput').value = opt.dataset.plate || '';
+  document.getElementById('carTypeInput').value = opt.dataset.carType || '';
+  document.getElementById('carModelInput').value = opt.dataset.carModel || '';
+
+  const lastOdo = parseFloat(opt.dataset.lastOdometer);
+  if (!isNaN(lastOdo) && lastOdo > 0) {
+    const warn = document.getElementById('odometerWarn');
+    const msg = document.getElementById('odometerWarnMsg');
+    msg.textContent = `آخر قراءة عداد مسجّلة: ${lastOdo.toLocaleString()} كم`;
+    warn.style.display = 'flex';
+    document.getElementById('odometerInput').min = lastOdo;
+  }
+}
+
+function clearVehicleInputs() {
+  ['plateInput','carTypeInput','carModelInput'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('odometerWarn').style.display = 'none';
+}
+
+function toggleNewVehicle() {
+  const nvb = document.getElementById('newVehicleBlock');
+  nvb.style.display = nvb.style.display === 'none' ? 'block' : 'none';
+  if (nvb.style.display === 'block') {
+    document.getElementById('vehicleSelect').value = '';
+    clearVehicleInputs();
+  }
+}
+
+// ── Items ─────────────────────────────────────────────────────────────────────
+let itemCount = 0;
+
+function addItem() {
+  const tbody = document.getElementById('itemsBody');
+  const msg = document.getElementById('noItemsMsg');
+  msg.style.display = 'none';
+
+  const opts = PRODUCTS.map(p =>
+    `<option value="${p.id}" data-price="${p.price}" data-stock="${p.stock}">${p.name} (${p.stock} ${p.unit})</option>`
+  ).join('');
+
+  const idx = itemCount++;
+  const tr = document.createElement('tr');
+  tr.id = `item-row-${idx}`;
+  tr.innerHTML = `
+    <td>
+      <select class="item-input" name="product_id[]"
+              onchange="onProductChange(this, ${idx})" required>
+        <option value="">— اختر منتج —</option>
+        ${opts}
+      </select>
+    </td>
+    <td>
+      <input class="item-input" type="number" name="quantity[]"
+             id="qty-${idx}" value="1" min="0.1" step="0.1"
+             style="width:80px;" onchange="updateRowTotal(${idx})" required/>
+    </td>
+    <td>
+      <input class="item-input" type="number" name="unit_price[]"
+             id="price-${idx}" value="0" min="0" step="0.01"
+             style="width:110px;" onchange="updateRowTotal(${idx})"/>
+    </td>
+    <td>
+      <span id="rowtotal-${idx}" class="td-n"
+            style="font-family:'JetBrains Mono',monospace;font-weight:600;">0.00</span>
+    </td>
+    <td>
+      <button type="button" class="remove-row" onclick="removeItem(${idx}, this)">
+        <i class="ti ti-trash"></i>
+      </button>
+    </td>
+  `;
+  tbody.appendChild(tr);
+}
+
+function onProductChange(sel, idx) {
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt.value) return;
+  const price = parseFloat(opt.dataset.price) || 0;
+  document.getElementById(`price-${idx}`).value = price.toFixed(2);
+  updateRowTotal(idx);
+}
+
+function updateRowTotal(idx) {
+  const qty = parseFloat(document.querySelector(`#item-row-${idx} [name="quantity[]"]`).value) || 0;
+  const price = parseFloat(document.querySelector(`#item-row-${idx} [name="unit_price[]"]`).value) || 0;
+  const total = qty * price;
+  document.getElementById(`rowtotal-${idx}`).textContent = total.toFixed(2);
+  calcTotals();
+}
+
+function removeItem(idx, btn) {
+  const row = document.getElementById(`item-row-${idx}`);
+  if (row) row.remove();
+  const tbody = document.getElementById('itemsBody');
+  if (tbody.children.length === 0) {
+    document.getElementById('noItemsMsg').style.display = 'block';
+  }
+  calcTotals();
+}
+
+// ── Calculate totals ──────────────────────────────────────────────────────────
+function calcTotals() {
+  let parts = 0;
+  document.querySelectorAll('[name="quantity[]"]').forEach((qEl, i) => {
+    const pEl = document.querySelectorAll('[name="unit_price[]"]')[i];
+    const qty = parseFloat(qEl.value) || 0;
+    const price = parseFloat(pEl ? pEl.value : 0) || 0;
+    parts += qty * price;
+  });
+
+  const labor = parseFloat(document.getElementById('laborCost').value) || 0;
+  const subtotal = parts + labor;
+  const discVal = parseFloat(document.getElementById('discountVal').value) || 0;
+  const discType = document.getElementById('discountType').value;
+  let discAmount = discType === 'percent' ? subtotal * discVal / 100 : discVal;
+  discAmount = Math.max(0, Math.min(discAmount, subtotal));
+  const total = subtotal - discAmount;
+
+  document.getElementById('sumParts').textContent = parts.toFixed(2) + ' ' + CURRENCY;
+  document.getElementById('sumLabor').textContent = labor.toFixed(2) + ' ' + CURRENCY;
+  document.getElementById('sumSubtotal').textContent = subtotal.toFixed(2) + ' ' + CURRENCY;
+  document.getElementById('sumDiscount').textContent = discAmount.toFixed(2) + ' ' + CURRENCY;
+  document.getElementById('sumTotal').textContent = total.toFixed(2) + ' ' + CURRENCY;
+}
+
+// ── Odometer warning ──────────────────────────────────────────────────────────
+document.getElementById('odometerInput').addEventListener('input', function() {
+  const val = parseFloat(this.value) || 0;
+  const min = parseFloat(this.min) || 0;
+  const warn = document.getElementById('odometerWarn');
+  const msg = document.getElementById('odometerWarnMsg');
+  if (min > 0 && val < min && val > 0) {
+    msg.textContent = `⚠️ القراءة المدخلة (${val.toLocaleString()} كم) أقل من آخر قراءة مسجّلة (${min.toLocaleString()} كم)`;
+    warn.style.display = 'flex';
+  } else if (min > 0) {
+    msg.textContent = `آخر قراءة عداد مسجّلة: ${min.toLocaleString()} كم`;
+    warn.style.display = 'flex';
+  }
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+addItem();
+calcTotals();
+</script>
+{% endblock %}

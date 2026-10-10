@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block title %}إدارة المستخدمين — {{ APP_NAME }}{% endblock %}
+{% block topbar_title %}إدارة المستخدمين{% endblock %}
+{% block topbar_crumb %}الإعدادات / المستخدمون{% endblock %}
+
+{% block page_header %}
+<div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;">
+  <div>
+    <h1 style="font-family:'Calistoga',serif;font-size:22px;">إدارة المستخدمين</h1>
+    <p style="font-size:12px;color:var(--muted-fg);margin-top:3px;">{{ users|length }} مستخدم مسجّل</p>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <a href="{{ url_for('settings.create_user') }}" class="btn btn-primary">
+      <i class="ti ti-user-plus"></i> مستخدم جديد
+    </a>
+    <a href="{{ url_for('settings.index') }}" class="btn btn-ghost">
+      <i class="ti ti-arrow-right"></i> الإعدادات
+    </a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<div class="card">
+  <div class="tw">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>المستخدم</th>
+          <th>الاسم الكامل</th>
+          <th>الدور</th>
+          <th>الحالة</th>
+          <th>آخر دخول</th>
+          <th>محاولات فاشلة</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user in users %}
+        <tr style="{% if not user.is_active %}opacity:.5;{% endif %}">
+          <td class="td-m" style="font-size:11px;">{{ loop.index }}</td>
+          <td>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:30px;height:30px;border-radius:50%;flex-shrink:0;
+                background:{% if user.is_admin %}var(--grad){% else %}var(--muted){% endif %};
+                display:flex;align-items:center;justify-content:center;
+                font-weight:800;font-size:12px;color:{% if user.is_admin %}#fff{% else %}var(--muted-fg){% endif %};">
+                {{ user.full_name[0] }}
+              </div>
+              <div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:var(--fg);">{{ user.username }}</div>
+                {% if user.force_password_change %}
+                <span style="font-size:10px;background:var(--orange-bg);color:var(--orange);border:1px solid rgba(180,83,9,.2);border-radius:20px;padding:1px 7px;font-weight:600;">
+                  <i class="ti ti-lock" style="font-size:9px;"></i> يجب تغيير المرور
+                </span>
+                {% endif %}
+              </div>
+            </div>
+          </td>
+          <td class="td-s">{{ user.full_name }}</td>
+          <td>
+            {% if user.is_admin %}
+              <span class="b b-grad">مدير</span>
+            {% else %}
+              <span class="b b-muted">كاشير</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if user.is_locked %}
+              <span class="b b-red"><i class="ti ti-lock" style="font-size:11px;"></i> مقفل</span>
+            {% elif user.is_active %}
+              <span class="b b-green">نشط</span>
+            {% else %}
+              <span class="b b-muted">معطل</span>
+            {% endif %}
+          </td>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted-fg);">
+            {{ user.last_login.strftime('%Y-%m-%d %H:%M') if user.last_login else '—' }}
+          </td>
+          <td>
+            {% if user.failed_attempts > 0 %}
+              <span class="b b-orange" style="font-family:'JetBrains Mono',monospace;">{{ user.failed_attempts }}</span>
+            {% else %}
+              <span class="td-m">0</span>
+            {% endif %}
+          </td>
+          <td>
+            <div style="display:flex;gap:5px;">
+              <a href="{{ url_for('settings.edit_user', user_id=user.id) }}"
+                 class="btn btn-ghost btn-sm" title="تعديل">
+                <i class="ti ti-edit"></i>
+              </a>
+              <button class="btn btn-ghost btn-sm" title="إعادة تعيين كلمة المرور"
+                      onclick="showReset({{ user.id }}, '{{ user.username }}')">
+                <i class="ti ti-key"></i>
+              </button>
+              {% if user.id != current_user.id %}
+              <form method="POST" action="{{ url_for('settings.toggle_user', user_id=user.id) }}"
+                    onsubmit="return confirm('{% if user.is_active %}تعطيل{% else %}تفعيل{% endif %} المستخدم {{ user.username }}؟')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <button type="submit"
+                        class="btn btn-sm {% if user.is_active %}btn-danger{% else %}btn-ghost{% endif %}"
+                        title="{% if user.is_active %}تعطيل{% else %}تفعيل{% endif %}">
+                  <i class="ti ti-{% if user.is_active %}user-off{% else %}user-check{% endif %}"></i>
+                </button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Permissions Info -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px;">
+  <div class="card" style="padding:18px;">
+    <div style="font-size:12px;font-weight:700;color:var(--fg);margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+      <span class="b b-grad">مدير</span> صلاحيات المدير
+    </div>
+    <ul style="font-size:12px;color:var(--muted-fg);line-height:2;padding-right:16px;">
+      <li>كل الصلاحيات بدون استثناء</li>
+      <li>التقارير والمصروفات</li>
+      <li>إدارة المستخدمين والإعدادات</li>
+      <li>النسخ الاحتياطي والاستعادة</li>
+      <li>إلغاء الفواتير والحذف</li>
+      <li>جرد المخزون</li>
+    </ul>
+  </div>
+  <div class="card" style="padding:18px;">
+    <div style="font-size:12px;font-weight:700;color:var(--fg);margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+      <span class="b b-muted">كاشير</span> صلاحيات الكاشير
+    </div>
+    <ul style="font-size:12px;color:var(--muted-fg);line-height:2;padding-right:16px;">
+      <li>نقطة البيع وإنشاء الفواتير</li>
+      <li>عرض المنتجات (بدون أسعار الشراء)</li>
+      <li>إضافة عملاء وعرضهم</li>
+      <li>عرض مبيعاته فقط</li>
+      <li>لا يرى الأرباح أو التقارير</li>
+      <li>لا يستطيع الحذف أو الإلغاء</li>
+    </ul>
+  </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div class="modal-overlay" id="resetModal">
+  <div class="modal-box">
+    <div class="modal-title">إعادة تعيين كلمة المرور</div>
+    <div class="modal-desc">
+      إعادة تعيين كلمة مرور: <strong id="resetUsername"></strong>
+      <br><span style="font-size:11px;color:var(--muted-fg);">سيُجبر المستخدم على تغييرها عند أول دخول.</span>
+    </div>
+    <form id="resetForm" method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+      <div class="fg-wrap">
+        <label class="fg-label">كلمة المرور الجديدة <span style="color:var(--red)">*</span></label>
+        <input type="password" name="new_password" class="fg-input"
+               placeholder="6 أحرف على الأقل" minlength="6" required/>
+      </div>
+      <div class="modal-actions" style="margin-top:0;">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('resetModal')">إلغاء</button>
+        <button type="submit" class="btn btn-primary"><i class="ti ti-key"></i> إعادة التعيين</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showReset(userId, username) {
+  document.getElementById('resetForm').action = `/settings/users/${userId}/reset-password`;
+  document.getElementById('resetUsername').textContent = username;
+  openModal('resetModal');
+}
+</script>
+{% endblock %}

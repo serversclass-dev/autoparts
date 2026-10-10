@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title %}المصروفات — {{ APP_NAME }}{% endblock %}
+{% block topbar_title %}المصروفات{% endblock %}
+{% block topbar_crumb %}المعاملات / المصروفات{% endblock %}
+
+{% block page_header %}
+<div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;">
+  <div>
+    <h1 style="font-family:'Calistoga',serif;font-size:22px;">المصروفات</h1>
+    <p style="font-size:12px;color:var(--muted-fg);margin-top:3px;">{{ expenses.total }} مصروف مسجّل</p>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <a href="{{ url_for('expenses.export_excel', date_from=date_from, date_to=date_to, category=category) }}"
+       class="btn btn-ghost"><i class="ti ti-file-spreadsheet"></i> Excel</a>
+    <a href="{{ url_for('expenses.create') }}" class="btn btn-primary">
+      <i class="ti ti-plus"></i> تسجيل مصروف
+    </a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<!-- Category Summary -->
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+  {% for cat_key, cat_label in categories.items() %}
+  {% set cat_total = cat_totals | selectattr('0','equalto',cat_key) | map(attribute='1') | first | default(0) %}
+  {% if cat_total > 0 %}
+  <div class="stat-side" style="min-width:150px;flex:1;">
+    <div class="stat-side-label">{{ cat_label }}</div>
+    <div class="stat-side-value" style="font-size:18px;color:var(--red);">{{ "%.0f"|format(cat_total) }} {{ CURRENCY }}</div>
+  </div>
+  {% endif %}
+  {% endfor %}
+</div>
+
+<!-- Filters -->
+<div class="card" style="margin-bottom:14px;">
+  <div style="padding:14px 18px;">
+    <form method="GET">
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+        <div style="flex:1;min-width:160px;">
+          <div class="fg-label">بحث</div>
+          <div style="position:relative;">
+            <i class="ti ti-search" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted-fg);font-size:15px;"></i>
+            <input name="search" class="fg-input" style="padding-right:34px;" placeholder="عنوان المصروف..." value="{{ search }}"/>
+          </div>
+        </div>
+        <div style="min-width:140px;">
+          <div class="fg-label">الفئة</div>
+          <select name="category" class="fg-input">
+            <option value="">— الكل —</option>
+            {% for key, label in categories.items() %}
+            <option value="{{ key }}" {% if category==key %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div style="min-width:130px;">
+          <div class="fg-label">من تاريخ</div>
+          <input type="date" name="date_from" class="fg-input" value="{{ date_from }}"/>
+        </div>
+        <div style="min-width:130px;">
+          <div class="fg-label">إلى تاريخ</div>
+          <input type="date" name="date_to" class="fg-input" value="{{ date_to }}"/>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button type="submit" class="btn btn-primary"><i class="ti ti-filter"></i> فلترة</button>
+          <a href="{{ url_for('expenses.index') }}" class="btn btn-ghost"><i class="ti ti-x"></i></a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-h">
+    <span class="card-title"><i class="ti ti-wallet"></i> إجمالي الفترة</span>
+    <span style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:var(--red);">{{ "%.2f"|format(total_amount) }} {{ CURRENCY }}</span>
+  </div>
+  <div class="tw">
+    {% if expenses.items %}
+    <table>
+      <thead>
+        <tr>
+          <th>#</th><th>البند</th><th>الفئة</th><th>المبلغ</th>
+          <th>طريقة الدفع</th><th>المسجّل</th><th>التاريخ</th><th>ملاحظات</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for exp in expenses.items %}
+        <tr>
+          <td class="td-m" style="font-size:11px;">{{ loop.index + (expenses.page-1)*expenses.per_page }}</td>
+          <td class="td-s">{{ exp.title }}</td>
+          <td><span class="b b-blue">{{ exp.category_label }}</span></td>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--red);">{{ "%.2f"|format(exp.amount) }} {{ CURRENCY }}</td>
+          <td class="td-m">{{ exp.payment_method_label }}</td>
+          <td class="td-m">{{ exp.user.full_name if exp.user else '—' }}</td>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted-fg);">{{ exp.expense_date.strftime('%Y-%m-%d') }}</td>
+          <td class="td-m" style="max-width:140px;overflow:hidden;text-overflow:ellipsis;font-size:12px;">{{ exp.notes or '—' }}</td>
+          <td>
+            <div style="display:flex;gap:5px;">
+              <a href="{{ url_for('expenses.edit', expense_id=exp.id) }}" class="btn btn-ghost btn-sm"><i class="ti ti-edit"></i></a>
+              <button class="btn btn-danger btn-sm"
+                      onclick="confirmDel('{{ url_for('expenses.delete', expense_id=exp.id) }}','{{ exp.title }}')">
+                <i class="ti ti-trash"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr style="background:var(--muted);">
+          <td colspan="3" style="padding:9px 16px;font-size:12px;font-weight:700;text-align:left;">إجمالي الصفحة</td>
+          <td style="padding:9px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--red);">
+            {{ "%.2f"|format(expenses.items | sum(attribute='amount')) }} {{ CURRENCY }}
+          </td>
+          <td colspan="5"></td>
+        </tr>
+      </tfoot>
+    </table>
+
+    {% if expenses.pages > 1 %}
+    <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-size:12px;color:var(--muted-fg);">{{ expenses.total }} مصروف</span>
+      <div class="pagination">
+        {% if expenses.has_prev %}
+        <a class="page-btn" href="?page={{ expenses.prev_num }}&search={{ search }}&category={{ category }}&date_from={{ date_from }}&date_to={{ date_to }}"><i class="ti ti-chevron-right"></i></a>
+        {% endif %}
+        {% for p in expenses.iter_pages(left_edge=1,right_edge=1,left_current=2,right_current=2) %}
+          {% if p %}<a class="page-btn {% if p==expenses.page %}active{% endif %}"
+             href="?page={{ p }}&search={{ search }}&category={{ category }}&date_from={{ date_from }}&date_to={{ date_to }}">{{ p }}</a>
+          {% else %}<span class="page-btn disabled">…</span>{% endif %}
+        {% endfor %}
+        {% if expenses.has_next %}
+        <a class="page-btn" href="?page={{ expenses.next_num }}&search={{ search }}&category={{ category }}&date_from={{ date_from }}&date_to={{ date_to }}"><i class="ti ti-chevron-left"></i></a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty">
+      <i class="ti ti-cash-off"></i>
+      <p>لا توجد مصروفات مطابقة</p>
+      <a href="{{ url_for('expenses.create') }}" class="btn btn-primary" style="margin-top:12px;">
+        <i class="ti ti-plus"></i> سجّل مصروفاً
+      </a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Delete Modal -->
+<div class="modal-overlay" id="delModal">
+  <div class="modal-box">
+    <div class="modal-title">تأكيد الحذف</div>
+    <div class="modal-desc" id="delMsg"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('delModal')">إلغاء</button>
+      <form id="delForm" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <button type="submit" class="btn btn-danger"><i class="ti ti-trash"></i> نعم، احذف</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function confirmDel(url, name) {
+  document.getElementById('delForm').action = url;
+  document.getElementById('delMsg').textContent = 'هل أنت متأكد من حذف المصروف "' + name + '"؟';
+  openModal('delModal');
+}
+</script>
+{% endblock %}
